@@ -10,9 +10,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/nununugraha/sains-api/internal/config"
 	"github.com/nununugraha/sains-api/internal/database"
+	"github.com/nununugraha/sains-api/internal/handler"
+	"github.com/nununugraha/sains-api/internal/middleware"
+	"github.com/nununugraha/sains-api/internal/repository"
+	"github.com/nununugraha/sains-api/internal/service"
 )
 
 func main() {
@@ -33,37 +38,61 @@ func main() {
 	}
 	defer database.Close(dbPool)
 
-	// Set Gin mode
-	gin.SetMode(cfg.GinMode)
+	// ── Dependencies ─────────────────────────────────────────────────
+	queries := repository.New(dbPool)
 
-	// Create router
-	r := gin.Default()
+	// Parse JWT expiry duration
+	jwtExpiry, err := time.ParseDuration(cfg.JWTExpiry)
+	if err != nil {
+		jwtExpiry = 1 * time.Hour
+	}
+
+	tokenService := service.NewTokenService(cfg.JWTSecret, jwtExpiry)
+	authService := service.NewAuthService(queries)
+	authHandler := handler.NewAuthHandler(authService, tokenService, queries, cfg.RefreshTokenExpiryDays)
+
+	// ── Router ────────────────────────────────────────────────────────
+	gin.SetMode(cfg.GinMode)
+	r := gin.New()
+
+	// Global middleware
+	r.Use(gin.Recovery())
+	r.Use(middleware.SecurityHeaders())
+	r.Use(middleware.CORSMiddleware(cfg.CORSOrigins))
+	r.Use(gin.Logger())
 
 	// ── Health check ─────────────────────────────────────────────────
-	r.GET("/health", func(c *gin.Context) {
-		// Ping DB to verify connection is alive
-		dbStatus := "ok"
-		if err := dbPool.Ping(c.Request.Context()); err != nil {
-			dbStatus = "error: " + err.Error()
-		}
+	r.GET("/health", healthCheck(dbPool))
 
-		c.JSON(http.StatusOK, gin.H{
-			"status":  "ok",
-			"service": "sains-api",
-			"db":      dbStatus,
-			"time":    time.Now().Format(time.RFC3339),
-		})
-	})
-
-	// ── API routes ───────────────────────────────────────────────────
+	// ── Public API routes ────────────────────────────────────────────
 	api := r.Group("/api")
 	{
 		api.GET("/ping", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"message": "pong"})
 		})
+
+		// Auth (public)
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", authHandler.Register)
+			auth.POST("/login", authHandler.Login)
+		}
 	}
 
-	// ── Start server with graceful shutdown ───────────────────────────
+	// ── Protected API routes ─────────────────────────────────────────
+	protected := api.Group("")
+	protected.Use(middleware.AuthMiddleware(tokenService))
+	{
+		protected.POST("/auth/logout", authHandler.Logout)
+		protected.GET("/auth/me", authHandler.Me)
+	}
+
+	// ── Admin routes (Phase BE-4) ────────────────────────────────────
+	// admin := r.Group("/admin")
+	// admin.Use(middleware.AuthMiddleware(tokenService))
+	// admin.Use(middleware.AdminMiddleware())
+
+	// ── Start server ─────────────────────────────────────────────────
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
@@ -79,7 +108,6 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -93,4 +121,19 @@ func main() {
 	}
 
 	log.Println("✅ Server exited cleanly")
+}
+
+func healthCheck(pool *pgxpool.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		dbStatus := "ok"
+		if err := pool.Ping(c.Request.Context()); err != nil {
+			dbStatus = "error"
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "ok",
+			"service": "sains-api",
+			"db":      dbStatus,
+			"time":    time.Now().Format(time.RFC3339),
+		})
+	}
 }
