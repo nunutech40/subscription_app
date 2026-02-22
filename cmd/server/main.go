@@ -50,11 +50,12 @@ func main() {
 	tokenService := service.NewTokenService(cfg.JWTSecret, jwtExpiry)
 	authService := service.NewAuthService(queries)
 	xenditService := service.NewXenditService(cfg.XenditAPIKey, cfg.XenditBaseURL)
+	emailService := service.NewEmailService(cfg.ResendAPIKey, cfg.FromEmail)
 
 	// ── Handlers ─────────────────────────────────────────────────────
 	authHandler := handler.NewAuthHandler(authService, tokenService, queries, cfg.RefreshTokenExpiryDays)
 	planHandler := handler.NewPlanHandler(queries)
-	subHandler := handler.NewSubscriptionHandler(queries, xenditService, cfg.XenditWebhookToken, cfg.FrontendURL)
+	subHandler := handler.NewSubscriptionHandler(queries, xenditService, emailService, cfg.XenditWebhookToken, cfg.FrontendURL)
 
 	// ── Router ────────────────────────────────────────────────────────
 	gin.SetMode(cfg.GinMode)

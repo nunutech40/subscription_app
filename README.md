@@ -158,6 +158,15 @@ make clean             # Remove build artifacts
 | POST | `/api/auth/login` | Login → JWT + refresh cookie | None |
 | POST | `/api/auth/logout` | Logout + revoke session | JWT |
 | GET | `/api/auth/me` | Get current user info | JWT |
+| GET | `/api/plans` | List pricing plans (?product&segment) | None |
+| GET | `/api/plans/:id` | Get plan detail | None |
+| GET | `/api/quota-status` | Current subscriber + guest counts | None |
+| POST | `/api/checkout` | Create Xendit invoice → checkout URL | JWT |
+| GET | `/api/subscriptions/me` | List user's subscriptions | JWT |
+| GET | `/api/access-check` | Check product access (?product) | JWT |
+| POST | `/api/xendit/webhook` | Xendit payment callback | Token |
+| POST | `/api/admin/pricing-plans` | Create pricing plan | Admin |
+| PUT | `/api/admin/pricing-plans/:id` | Update pricing plan | Admin |
 
 > Endpoints akan bertambah seiring step di `EXECUTION_PLAN.md`.
 

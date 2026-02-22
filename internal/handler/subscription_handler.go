@@ -18,6 +18,7 @@ import (
 type SubscriptionHandler struct {
 	queries       *repository.Queries
 	xenditService *service.XenditService
+	emailService  *service.EmailService
 	webhookToken  string // Xendit callback verification token
 	frontendURL   string // for redirect URLs
 }
@@ -26,12 +27,14 @@ type SubscriptionHandler struct {
 func NewSubscriptionHandler(
 	queries *repository.Queries,
 	xenditService *service.XenditService,
+	emailService *service.EmailService,
 	webhookToken string,
 	frontendURL string,
 ) *SubscriptionHandler {
 	return &SubscriptionHandler{
 		queries:       queries,
 		xenditService: xenditService,
+		emailService:  emailService,
 		webhookToken:  webhookToken,
 		frontendURL:   frontendURL,
 	}
@@ -203,7 +206,7 @@ func (h *SubscriptionHandler) XenditWebhook(c *gin.Context) {
 			})
 		}
 
-		// Activate the user account
+		// Activate the user account + send welcome email
 		subID := stringToUUID(payload.ExternalID)
 		sub, err := h.queries.GetSubscriptionByID(ctx, subID)
 		if err == nil {
@@ -211,6 +214,21 @@ func (h *SubscriptionHandler) XenditWebhook(c *gin.Context) {
 				IsActive: pgtype.Bool{Bool: true, Valid: true},
 				ID:       sub.UserID,
 			})
+
+			// Send welcome email
+			user, userErr := h.queries.GetUserByID(ctx, sub.UserID)
+			if userErr == nil {
+				expiresStr := sub.ExpiresAt.Time.Format("2 January 2006")
+				go func() {
+					if emailErr := h.emailService.SendWelcomeEmail(
+						ctx, user.Email, user.Name.String,
+						sub.ProductID.String, expiresStr,
+					); emailErr != nil {
+						log.Printf("⚠️ Failed to send welcome email: %v", emailErr)
+					}
+				}()
+			}
+
 			log.Printf("✅ Subscription activated: %s (user=%s)", payload.ExternalID, uuidToString(sub.UserID))
 		}
 
