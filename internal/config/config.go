@@ -1,0 +1,88 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+)
+
+// Config holds all configuration for the application.
+type Config struct {
+	// Server
+	Port    string
+	GinMode string
+
+	// Database
+	DatabaseURL string
+
+	// Auth
+	JWTSecret             string
+	JWTExpiry             string
+	RefreshTokenExpiryDays int
+
+	// Xendit
+	XenditAPIKey       string
+	XenditWebhookToken string
+	XenditBaseURL      string
+
+	// Resend
+	ResendAPIKey string
+	FromEmail    string
+
+	// CORS
+	CORSOrigins string
+
+	// Admin
+	AdminSecretKey string
+}
+
+// Load reads configuration from environment variables.
+func Load() (*Config, error) {
+	cfg := &Config{
+		Port:    getEnv("PORT", "8080"),
+		GinMode: getEnv("GIN_MODE", "debug"),
+
+		DatabaseURL: getEnv("DATABASE_URL", ""),
+
+		JWTSecret:             getEnv("JWT_SECRET", ""),
+		JWTExpiry:             getEnv("JWT_EXPIRY", "1h"),
+		RefreshTokenExpiryDays: getEnvInt("REFRESH_TOKEN_EXPIRY_DAYS", 30),
+
+		XenditAPIKey:       getEnv("XENDIT_API_KEY", ""),
+		XenditWebhookToken: getEnv("XENDIT_WEBHOOK_TOKEN", ""),
+		XenditBaseURL:      getEnv("XENDIT_BASE_URL", "https://api.xendit.co"),
+
+		ResendAPIKey: getEnv("RESEND_API_KEY", ""),
+		FromEmail:    getEnv("FROM_EMAIL", "noreply@sains.id"),
+
+		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:5173"),
+
+		AdminSecretKey: getEnv("ADMIN_SECRET_KEY", ""),
+	}
+
+	// Validate required fields
+	if cfg.DatabaseURL == "" {
+		return nil, fmt.Errorf("DATABASE_URL is required")
+	}
+	if cfg.JWTSecret == "" {
+		return nil, fmt.Errorf("JWT_SECRET is required")
+	}
+
+	return cfg, nil
+}
+
+func getEnv(key, fallback string) string {
+	if val, ok := os.LookupEnv(key); ok {
+		return val
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if val, ok := os.LookupEnv(key); ok {
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
+		}
+	}
+	return fallback
+}
