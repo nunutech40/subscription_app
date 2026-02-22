@@ -113,10 +113,7 @@ func (s *AuthService) Login(ctx context.Context, input LoginInput) (*LoginResult
 	}
 
 	// Generate refresh token
-	refreshToken, err := generateRefreshToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
-	}
+	refreshToken := GenerateRefreshToken()
 
 	return &LoginResult{
 		User:         user,
@@ -150,13 +147,11 @@ func (s *AuthService) isSubscriberQuotaFull(ctx context.Context) (bool, error) {
 	return count >= int64(maxSubs), nil
 }
 
-// generateRefreshToken creates a cryptographically secure random token.
-func generateRefreshToken() (string, error) {
+// GenerateRefreshToken creates a cryptographically secure random token.
+func GenerateRefreshToken() string {
 	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
 }
 
 // HashRefreshToken hashes a refresh token for storage.

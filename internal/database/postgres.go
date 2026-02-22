@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -15,6 +16,9 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse DATABASE_URL: %w", err)
 	}
+
+	// Disable prepared statement cache for PgBouncer (Supabase pooler) compatibility
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	// Connection pool settings
 	config.MaxConns = 10                   // max connections (Supabase free tier limit ~15)

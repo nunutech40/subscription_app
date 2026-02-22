@@ -23,3 +23,15 @@ SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
+
+-- name: GetUserAnomalyScore :one
+SELECT COALESCE(SUM(score_delta), 0)::bigint FROM anomaly_logs WHERE user_id = $1;
+
+-- name: ListFlaggedUsers :many
+SELECT u.*, COALESCE(SUM(al.score_delta), 0)::int AS total_score
+FROM users u
+LEFT JOIN anomaly_logs al ON al.user_id = u.id
+GROUP BY u.id
+HAVING COALESCE(SUM(al.score_delta), 0) >= $1
+ORDER BY total_score DESC
+LIMIT $2 OFFSET $3;

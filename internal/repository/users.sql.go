@@ -69,6 +69,17 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const getUserAnomalyScore = `-- name: GetUserAnomalyScore :one
+SELECT COALESCE(SUM(score_delta), 0)::bigint FROM anomaly_logs WHERE user_id = $1
+`
+
+func (q *Queries) GetUserAnomalyScore(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getUserAnomalyScore, userID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users WHERE email = $1
 `
@@ -107,6 +118,64 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listFlaggedUsers = `-- name: ListFlaggedUsers :many
+SELECT u.id, u.email, u.name, u.password_hash, u.role, u.is_active, u.anomaly_score, u.created_at, COALESCE(SUM(al.score_delta), 0)::int AS total_score
+FROM users u
+LEFT JOIN anomaly_logs al ON al.user_id = u.id
+GROUP BY u.id
+HAVING COALESCE(SUM(al.score_delta), 0) >= $1
+ORDER BY total_score DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListFlaggedUsersParams struct {
+	ScoreDelta int32 `json:"score_delta"`
+	Limit      int32 `json:"limit"`
+	Offset     int32 `json:"offset"`
+}
+
+type ListFlaggedUsersRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Email        string             `json:"email"`
+	Name         pgtype.Text        `json:"name"`
+	PasswordHash string             `json:"password_hash"`
+	Role         pgtype.Text        `json:"role"`
+	IsActive     pgtype.Bool        `json:"is_active"`
+	AnomalyScore pgtype.Int4        `json:"anomaly_score"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	TotalScore   int32              `json:"total_score"`
+}
+
+func (q *Queries) ListFlaggedUsers(ctx context.Context, arg ListFlaggedUsersParams) ([]ListFlaggedUsersRow, error) {
+	rows, err := q.db.Query(ctx, listFlaggedUsers, arg.ScoreDelta, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFlaggedUsersRow{}
+	for rows.Next() {
+		var i ListFlaggedUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.Role,
+			&i.IsActive,
+			&i.AnomalyScore,
+			&i.CreatedAt,
+			&i.TotalScore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUsers = `-- name: ListUsers :many

@@ -167,6 +167,11 @@ make clean             # Remove build artifacts
 | POST | `/api/xendit/webhook` | Xendit payment callback | Token |
 | POST | `/api/admin/pricing-plans` | Create pricing plan | Admin |
 | PUT | `/api/admin/pricing-plans/:id` | Update pricing plan | Admin |
+| POST | `/api/auth/guest-login` | Guest login (code + email) | None |
+| POST | `/api/admin/guest-codes` | Create guest code | Admin |
+| GET | `/api/admin/guest-codes` | List guest codes | Admin |
+| GET | `/api/admin/guest-codes/:id` | Guest code detail + logins | Admin |
+| DELETE | `/api/admin/guest-codes/:id` | Revoke guest code | Admin |
 
 > Endpoints akan bertambah seiring step di `EXECUTION_PLAN.md`.
 

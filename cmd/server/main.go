@@ -51,10 +51,12 @@ func main() {
 	authService := service.NewAuthService(queries)
 	xenditService := service.NewXenditService(cfg.XenditAPIKey, cfg.XenditBaseURL)
 	emailService := service.NewEmailService(cfg.ResendAPIKey, cfg.FromEmail)
+	anomalyService := service.NewAnomalyService(queries)
 
 	// ── Handlers ─────────────────────────────────────────────────────
-	authHandler := handler.NewAuthHandler(authService, tokenService, queries, cfg.RefreshTokenExpiryDays)
+	authHandler := handler.NewAuthHandler(authService, tokenService, anomalyService, queries, cfg.RefreshTokenExpiryDays)
 	planHandler := handler.NewPlanHandler(queries)
+	guestHandler := handler.NewGuestHandler(queries)
 	subHandler := handler.NewSubscriptionHandler(queries, xenditService, emailService, cfg.XenditWebhookToken, cfg.FrontendURL)
 
 	// ── Router ────────────────────────────────────────────────────────
@@ -82,6 +84,7 @@ func main() {
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/guest-login", authHandler.GuestLogin)
 		}
 
 		// Plans (public)
@@ -116,6 +119,12 @@ func main() {
 	{
 		admin.POST("/pricing-plans", planHandler.CreatePlan)
 		admin.PUT("/pricing-plans/:id", planHandler.UpdatePlan)
+
+		// Guest codes
+		admin.POST("/guest-codes", guestHandler.CreateGuestCode)
+		admin.GET("/guest-codes", guestHandler.ListGuestCodes)
+		admin.GET("/guest-codes/:id", guestHandler.GetGuestCodeDetail)
+		admin.DELETE("/guest-codes/:id", guestHandler.RevokeGuestCode)
 	}
 
 	// ── Start server ─────────────────────────────────────────────────

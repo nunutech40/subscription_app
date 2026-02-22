@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/netip"
 	"time"
@@ -15,24 +17,27 @@ import (
 
 // AuthHandler handles authentication endpoints.
 type AuthHandler struct {
-	authService  *service.AuthService
-	tokenService *service.TokenService
-	queries      *repository.Queries
-	refreshDays  int
+	authService    *service.AuthService
+	tokenService   *service.TokenService
+	anomalyService *service.AnomalyService
+	queries        *repository.Queries
+	refreshDays    int
 }
 
 // NewAuthHandler creates a new AuthHandler.
 func NewAuthHandler(
 	authService *service.AuthService,
 	tokenService *service.TokenService,
+	anomalyService *service.AnomalyService,
 	queries *repository.Queries,
 	refreshDays int,
 ) *AuthHandler {
 	return &AuthHandler{
-		authService:  authService,
-		tokenService: tokenService,
-		queries:      queries,
-		refreshDays:  refreshDays,
+		authService:    authService,
+		tokenService:   tokenService,
+		anomalyService: anomalyService,
+		queries:        queries,
+		refreshDays:    refreshDays,
 	}
 }
 
@@ -47,6 +52,11 @@ type registerRequest struct {
 type loginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+type guestLoginRequest struct {
+	Code  string `json:"code" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
 }
 
 type authData struct {
@@ -120,6 +130,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			RespondError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "Email atau password salah")
 			return
 		}
+		log.Printf("login error: %v", err)
 		RespondInternalError(c)
 		return
 	}
@@ -136,12 +147,16 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Check anomaly before revoking (needs old session data)
+	go h.anomalyService.CheckLoginAnomaly(context.Background(), result.User.ID, c.ClientIP(), c.GetHeader("User-Agent"))
+
 	// Revoke existing sessions (single session rule)
 	_ = h.queries.RevokeAllUserSessions(c.Request.Context(), result.User.ID)
 
 	// Hash refresh token for storage
 	refreshHash, err := service.HashRefreshToken(result.RefreshToken)
 	if err != nil {
+		log.Printf("hash refresh token error: %v", err)
 		RespondInternalError(c)
 		return
 	}
@@ -162,6 +177,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		},
 	})
 	if err != nil {
+		log.Printf("create session error: %v", err)
 		RespondInternalError(c)
 		return
 	}
@@ -216,6 +232,98 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	}
 
 	RespondSuccess(c, http.StatusOK, toUserDTO(user))
+}
+
+// GuestLogin handles POST /api/auth/guest-login
+func (h *AuthHandler) GuestLogin(c *gin.Context) {
+	var req guestLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondBadRequest(c, "Data tidak valid: "+err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// 1. Validate guest code
+	guestCode, err := h.queries.GetGuestCodeByCode(ctx, req.Code)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "Kode guest tidak valid atau sudah tidak aktif")
+		return
+	}
+
+	// Check expiry
+	if guestCode.ExpiresAt.Time.Before(time.Now()) {
+		RespondError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "Kode guest sudah expired")
+		return
+	}
+
+	// 2. Check guest quota
+	activeGuests, _ := h.queries.CountActiveGuestSessions(ctx)
+	maxGuestsStr := "50"
+	if cfg, cfgErr := h.queries.GetConfig(ctx, "max_active_guests"); cfgErr == nil {
+		maxGuestsStr = cfg.Value
+	}
+	maxGuests := 50
+	fmt.Sscanf(maxGuestsStr, "%d", &maxGuests)
+
+	if int(activeGuests) >= maxGuests {
+		RespondQuotaFull(c, "Kuota guest sedang penuh, coba lagi nanti")
+		return
+	}
+
+	// 3. Check login count per email
+	existingLogin, loginErr := h.queries.GetGuestLogin(ctx, repository.GetGuestLoginParams{
+		GuestCodeID: guestCode.ID,
+		Email:       req.Email,
+	})
+	if loginErr == nil && existingLogin.LoginCount.Int32 >= guestCode.MaxLoginsPerEmail.Int32 {
+		RespondError(c, http.StatusForbidden, ErrCodeForbidden,
+			fmt.Sprintf("Trial habis. Kamu sudah login %d kali dengan kode ini.", existingLogin.LoginCount.Int32))
+		return
+	}
+
+	// 4. Upsert guest login (increment count)
+	_, _ = h.queries.UpsertGuestLogin(ctx, repository.UpsertGuestLoginParams{
+		GuestCodeID: guestCode.ID,
+		Email:       req.Email,
+	})
+
+	// 5. Generate access token (guest role, limited)
+	accessToken, err := h.tokenService.GenerateAccessToken(
+		"guest:"+uuidToString(guestCode.ID),
+		req.Email,
+		"guest",
+	)
+	if err != nil {
+		RespondInternalError(c)
+		return
+	}
+
+	// 6. Create guest session (24 hours)
+	refreshToken := service.GenerateRefreshToken()
+	refreshHash, _ := service.HashRefreshToken(refreshToken)
+
+	_, _ = h.queries.CreateSession(ctx, repository.CreateSessionParams{
+		GuestCodeID:      guestCode.ID,
+		GuestEmail:       pgtype.Text{String: req.Email, Valid: true},
+		RefreshTokenHash: refreshHash,
+		IpAtLogin:        parseIP(c.ClientIP()),
+		UserAgent:        pgtype.Text{String: c.GetHeader("User-Agent"), Valid: true},
+		ExpiresAt: pgtype.Timestamptz{
+			Time:  time.Now().Add(24 * time.Hour),
+			Valid: true,
+		},
+	})
+
+	// Set cookie
+	c.SetCookie("refresh_token", refreshToken, 24*60*60, "/api/auth", "", true, true)
+
+	RespondSuccess(c, http.StatusOK, gin.H{
+		"access_token": accessToken,
+		"expires_in":   3600,
+		"role":         "guest",
+		"product":      guestCode.ProductID.String,
+	}, "Login sebagai guest berhasil")
 }
 
 // ── UUID Helpers ────────────────────────────────────────────────────
