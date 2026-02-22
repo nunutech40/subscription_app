@@ -49,7 +49,12 @@ func main() {
 
 	tokenService := service.NewTokenService(cfg.JWTSecret, jwtExpiry)
 	authService := service.NewAuthService(queries)
+	xenditService := service.NewXenditService(cfg.XenditAPIKey, cfg.XenditBaseURL)
+
+	// ── Handlers ─────────────────────────────────────────────────────
 	authHandler := handler.NewAuthHandler(authService, tokenService, queries, cfg.RefreshTokenExpiryDays)
+	planHandler := handler.NewPlanHandler(queries)
+	subHandler := handler.NewSubscriptionHandler(queries, xenditService, cfg.XenditWebhookToken, cfg.FrontendURL)
 
 	// ── Router ────────────────────────────────────────────────────────
 	gin.SetMode(cfg.GinMode)
@@ -77,20 +82,40 @@ func main() {
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 		}
+
+		// Plans (public)
+		api.GET("/plans", planHandler.ListPlans)
+		api.GET("/plans/:id", planHandler.GetPlan)
+
+		// Quota status (public)
+		api.GET("/quota-status", subHandler.QuotaStatus)
+
+		// Xendit webhook (public, verified by X-Callback-Token)
+		api.POST("/xendit/webhook", subHandler.XenditWebhook)
 	}
 
 	// ── Protected API routes ─────────────────────────────────────────
 	protected := api.Group("")
 	protected.Use(middleware.AuthMiddleware(tokenService))
 	{
+		// Auth (protected)
 		protected.POST("/auth/logout", authHandler.Logout)
 		protected.GET("/auth/me", authHandler.Me)
+
+		// Checkout + Subscriptions
+		protected.POST("/checkout", subHandler.Checkout)
+		protected.GET("/subscriptions/me", subHandler.MySubscriptions)
+		protected.GET("/access-check", subHandler.AccessCheck)
 	}
 
-	// ── Admin routes (Phase BE-4) ────────────────────────────────────
-	// admin := r.Group("/admin")
-	// admin.Use(middleware.AuthMiddleware(tokenService))
-	// admin.Use(middleware.AdminMiddleware())
+	// ── Admin routes ─────────────────────────────────────────────────
+	admin := api.Group("/admin")
+	admin.Use(middleware.AuthMiddleware(tokenService))
+	admin.Use(middleware.AdminMiddleware())
+	{
+		admin.POST("/pricing-plans", planHandler.CreatePlan)
+		admin.PUT("/pricing-plans/:id", planHandler.UpdatePlan)
+	}
 
 	// ── Start server ─────────────────────────────────────────────────
 	srv := &http.Server{

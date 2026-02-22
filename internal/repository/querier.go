@@ -53,6 +53,7 @@ type Querier interface {
 	RevokeAllUserSessions(ctx context.Context, userID pgtype.UUID) error
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) error
 	SetUserActive(ctx context.Context, arg SetUserActiveParams) error
+	SetXenditInvoiceID(ctx context.Context, arg SetXenditInvoiceIDParams) error
 	UpdateConfig(ctx context.Context, arg UpdateConfigParams) error
 	UpdatePricingPlan(ctx context.Context, arg UpdatePricingPlanParams) error
 	UpdateSubscriptionStatus(ctx context.Context, arg UpdateSubscriptionStatusParams) error

@@ -244,6 +244,22 @@ func (q *Queries) ListUserSubscriptions(ctx context.Context, userID pgtype.UUID)
 	return items, nil
 }
 
+const setXenditInvoiceID = `-- name: SetXenditInvoiceID :exec
+UPDATE subscriptions
+SET xendit_invoice_id = $2
+WHERE id = $1
+`
+
+type SetXenditInvoiceIDParams struct {
+	ID              pgtype.UUID `json:"id"`
+	XenditInvoiceID pgtype.Text `json:"xendit_invoice_id"`
+}
+
+func (q *Queries) SetXenditInvoiceID(ctx context.Context, arg SetXenditInvoiceIDParams) error {
+	_, err := q.db.Exec(ctx, setXenditInvoiceID, arg.ID, arg.XenditInvoiceID)
+	return err
+}
+
 const updateSubscriptionStatus = `-- name: UpdateSubscriptionStatus :exec
 UPDATE subscriptions
 SET status = $2, paid_at = $3, starts_at = $4

@@ -35,3 +35,8 @@ SELECT s.*, u.email, u.name FROM subscriptions s
 JOIN users u ON u.id = s.user_id
 WHERE s.status = 'active' AND s.expires_at BETWEEN now() AND now() + INTERVAL '7 days'
 ORDER BY s.expires_at ASC;
+
+-- name: SetXenditInvoiceID :exec
+UPDATE subscriptions
+SET xendit_invoice_id = $2
+WHERE id = $1;

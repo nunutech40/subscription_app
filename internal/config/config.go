@@ -16,8 +16,8 @@ type Config struct {
 	DatabaseURL string
 
 	// Auth
-	JWTSecret             string
-	JWTExpiry             string
+	JWTSecret              string
+	JWTExpiry              string
 	RefreshTokenExpiryDays int
 
 	// Xendit
@@ -32,6 +32,9 @@ type Config struct {
 	// CORS
 	CORSOrigins string
 
+	// Frontend
+	FrontendURL string
+
 	// Admin
 	AdminSecretKey string
 }
@@ -44,8 +47,8 @@ func Load() (*Config, error) {
 
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 
-		JWTSecret:             getEnv("JWT_SECRET", ""),
-		JWTExpiry:             getEnv("JWT_EXPIRY", "1h"),
+		JWTSecret:              getEnv("JWT_SECRET", ""),
+		JWTExpiry:              getEnv("JWT_EXPIRY", "1h"),
 		RefreshTokenExpiryDays: getEnvInt("REFRESH_TOKEN_EXPIRY_DAYS", 30),
 
 		XenditAPIKey:       getEnv("XENDIT_API_KEY", ""),
@@ -56,6 +59,8 @@ func Load() (*Config, error) {
 		FromEmail:    getEnv("FROM_EMAIL", "noreply@sains.id"),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:5173"),
+
+		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"),
 
 		AdminSecretKey: getEnv("ADMIN_SECRET_KEY", ""),
 	}
