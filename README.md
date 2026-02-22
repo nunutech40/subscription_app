@@ -154,6 +154,10 @@ make clean             # Remove build artifacts
 |--------|------|-------------|------|
 | GET | `/health` | Health check + DB ping | None |
 | GET | `/api/ping` | Simple ping/pong | None |
+| POST | `/api/auth/register` | Registrasi user baru | None |
+| POST | `/api/auth/login` | Login → JWT + refresh cookie | None |
+| POST | `/api/auth/logout` | Logout + revoke session | JWT |
+| GET | `/api/auth/me` | Get current user info | JWT |
 
 > Endpoints akan bertambah seiring step di `EXECUTION_PLAN.md`.
 
