@@ -163,6 +163,83 @@ make clean             # Remove build artifacts
 
 ---
 
+## API Response Format
+
+Semua endpoint `/api/*` menggunakan format JSON yang konsisten.
+
+### Success Response
+```json
+{
+  "data": { ... },
+  "message": "optional human-readable message"
+}
+```
+
+### Error Response
+```json
+{
+  "error": {
+    "code": "MACHINE_READABLE_CODE",
+    "message": "Pesan untuk ditampilkan ke user"
+  }
+}
+```
+
+### List Response (with pagination)
+```json
+{
+  "data": [ ... ],
+  "meta": {
+    "page": 1,
+    "per_page": 20,
+    "total": 156
+  }
+}
+```
+
+### Error Codes
+
+| Code | HTTP | Kapan |
+|------|------|-------|
+| `VALIDATION_ERROR` | 400 | Input nggak valid (email, password, dll) |
+| `UNAUTHORIZED` | 401 | Token nggak ada |
+| `INVALID_CREDENTIALS` | 401 | Email/password salah |
+| `TOKEN_EXPIRED` | 401 | JWT sudah expired |
+| `TOKEN_INVALID` | 401 | JWT rusak/tampered |
+| `FORBIDDEN` | 403 | Bukan admin |
+| `NOT_FOUND` | 404 | Resource nggak ketemu |
+| `CONFLICT` | 409 | Duplicate (email sudah ada) |
+| `RATE_LIMITED` | 429 | Terlalu banyak request |
+| `QUOTA_FULL` | 503 | Kuota subscriber penuh |
+| `INTERNAL_ERROR` | 500 | Generic server error |
+
+### Frontend Usage Pattern
+```javascript
+const res = await fetch('/api/auth/login', { method: 'POST', body: ... });
+const json = await res.json();
+
+if (json.error) {
+  // Error path — show json.error.message to user
+  // Use json.error.code for programmatic handling
+  if (json.error.code === 'TOKEN_EXPIRED') { await refreshToken(); }
+  showToast(json.error.message);
+} else {
+  // Success path — use json.data
+  setUser(json.data.user);
+  setToken(json.data.access_token);
+}
+```
+
+### HTMX (Admin Dashboard Only)
+Endpoint `/admin/*` (Phase BE-4) akan return **HTML fragments** bukan JSON.
+HTMX swap partial HTML langsung ke DOM — nggak perlu parsing JSON.
+```
+/api/*   → JSON  → untuk frontend app (Atomic, sains.id)
+/admin/* → HTML  → untuk admin dashboard (HTMX)
+```
+
+---
+
 ## Troubleshooting
 
 ### "no route to host" saat connect DB

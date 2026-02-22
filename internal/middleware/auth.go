@@ -13,20 +13,19 @@ func AuthMiddleware(tokenService *service.TokenService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := extractToken(c)
 		if tokenString == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "Token tidak ditemukan. Silakan login.",
-			})
+			abortWithError(c, http.StatusUnauthorized, "TOKEN_INVALID", "Token tidak ditemukan. Silakan login.")
 			return
 		}
 
 		claims, err := tokenService.ValidateToken(tokenString)
 		if err != nil {
-			status := http.StatusUnauthorized
+			code := "TOKEN_INVALID"
 			msg := "Token tidak valid"
 			if err == service.ErrExpiredToken {
+				code = "TOKEN_EXPIRED"
 				msg = "Token sudah expired. Silakan refresh atau login ulang."
 			}
-			c.AbortWithStatusJSON(status, gin.H{"error": msg})
+			abortWithError(c, http.StatusUnauthorized, code, msg)
 			return
 		}
 
@@ -45,9 +44,7 @@ func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
 		if !exists || role.(string) != "admin" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "Akses ditolak. Hanya admin yang bisa mengakses.",
-			})
+			abortWithError(c, http.StatusForbidden, "FORBIDDEN", "Akses ditolak. Hanya admin yang bisa mengakses.")
 			return
 		}
 		c.Next()
@@ -71,4 +68,15 @@ func extractToken(c *gin.Context) string {
 	}
 
 	return ""
+}
+
+// abortWithError sends a consistent error response from middleware.
+// Uses the same { error: { code, message } } format as handler/response.go.
+func abortWithError(c *gin.Context, status int, code string, message string) {
+	c.AbortWithStatusJSON(status, gin.H{
+		"error": gin.H{
+			"code":    code,
+			"message": message,
+		},
+	})
 }

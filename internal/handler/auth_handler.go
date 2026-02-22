@@ -49,17 +49,28 @@ type loginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-type authResponse struct {
-	User        userResponse `json:"user"`
-	AccessToken string       `json:"access_token"`
-	ExpiresIn   int          `json:"expires_in"` // seconds
+type authData struct {
+	User        userDTO `json:"user"`
+	AccessToken string  `json:"access_token"`
+	ExpiresIn   int     `json:"expires_in"` // seconds
 }
 
-type userResponse struct {
+type userDTO struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
 	Name  string `json:"name"`
 	Role  string `json:"role"`
+}
+
+// ── toDTO ───────────────────────────────────────────────────────────
+
+func toUserDTO(u repository.User) userDTO {
+	return userDTO{
+		ID:    uuidToString(u.ID),
+		Email: u.Email,
+		Name:  u.Name.String,
+		Role:  u.Role.String,
+	}
 }
 
 // ── Handlers ────────────────────────────────────────────────────────
@@ -68,7 +79,7 @@ type userResponse struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req registerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid: " + err.Error()})
+		RespondBadRequest(c, "Data tidak valid: "+err.Error())
 		return
 	}
 
@@ -80,34 +91,23 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrEmailAlreadyExists):
-			c.JSON(http.StatusConflict, gin.H{"error": "Email sudah terdaftar"})
+			RespondConflict(c, "Email sudah terdaftar")
 		case errors.Is(err, service.ErrQuotaFull):
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"error":   "Kuota subscriber sedang penuh",
-				"message": "Silakan coba lagi nanti atau hubungi support",
-			})
+			RespondQuotaFull(c, "Kuota subscriber sedang penuh, coba lagi nanti")
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Terjadi kesalahan server"})
+			RespondInternalError(c)
 		}
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Registrasi berhasil! Silakan login.",
-		"user": userResponse{
-			ID:    uuidToString(result.User.ID),
-			Email: result.User.Email,
-			Name:  result.User.Name.String,
-			Role:  result.User.Role.String,
-		},
-	})
+	RespondSuccess(c, http.StatusCreated, toUserDTO(result.User), "Registrasi berhasil! Silakan login.")
 }
 
 // Login handles POST /api/auth/login
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid: " + err.Error()})
+		RespondBadRequest(c, "Data tidak valid: "+err.Error())
 		return
 	}
 
@@ -117,10 +117,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah"})
+			RespondError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "Email atau password salah")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Terjadi kesalahan server"})
+		RespondInternalError(c)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		result.User.Role.String,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token"})
+		RespondInternalError(c)
 		return
 	}
 
@@ -142,7 +142,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Hash refresh token for storage
 	refreshHash, err := service.HashRefreshToken(result.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat session"})
+		RespondInternalError(c)
 		return
 	}
 
@@ -162,7 +162,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		},
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat session"})
+		RespondInternalError(c)
 		return
 	}
 
@@ -170,31 +170,25 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.SetCookie(
 		"refresh_token",
 		result.RefreshToken,
-		h.refreshDays*24*60*60, // max age in seconds
+		h.refreshDays*24*60*60,
 		"/api/auth",
-		"",   // domain (empty = current)
-		true, // secure (HTTPS only)
-		true, // httpOnly
+		"",
+		true,
+		true,
 	)
 
-	c.JSON(http.StatusOK, authResponse{
-		User: userResponse{
-			ID:    userID,
-			Email: result.User.Email,
-			Name:  result.User.Name.String,
-			Role:  result.User.Role.String,
-		},
+	RespondSuccess(c, http.StatusOK, authData{
+		User:        toUserDTO(result.User),
 		AccessToken: accessToken,
-		ExpiresIn:   3600, // 1 hour
+		ExpiresIn:   3600,
 	})
 }
 
 // Logout handles POST /api/auth/logout
 func (h *AuthHandler) Logout(c *gin.Context) {
-	// Get user ID from context (set by auth middleware)
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak terautentikasi"})
+		RespondUnauthorized(c, "Tidak terautentikasi")
 		return
 	}
 
@@ -204,34 +198,27 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	// Clear cookie
 	c.SetCookie("refresh_token", "", -1, "/api/auth", "", true, true)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Berhasil logout"})
+	RespondSuccess(c, http.StatusOK, nil, "Berhasil logout")
 }
 
 // Me handles GET /api/auth/me
 func (h *AuthHandler) Me(c *gin.Context) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Tidak terautentikasi"})
+		RespondUnauthorized(c, "Tidak terautentikasi")
 		return
 	}
 
 	user, err := h.queries.GetUserByID(c.Request.Context(), stringToUUID(userIDStr.(string)))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User tidak ditemukan"})
+		RespondNotFound(c, "User tidak ditemukan")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"user": userResponse{
-			ID:    uuidToString(user.ID),
-			Email: user.Email,
-			Name:  user.Name.String,
-			Role:  user.Role.String,
-		},
-	})
+	RespondSuccess(c, http.StatusOK, toUserDTO(user))
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────
+// ── UUID Helpers ────────────────────────────────────────────────────
 
 func uuidToString(u pgtype.UUID) string {
 	if !u.Valid {
@@ -255,7 +242,6 @@ func stringToUUID(s string) pgtype.UUID {
 
 func parseUUID(s string) ([16]byte, error) {
 	var uuid [16]byte
-	// Remove hyphens
 	clean := ""
 	for _, c := range s {
 		if c != '-' {
