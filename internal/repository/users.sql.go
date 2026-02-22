@@ -22,6 +22,33 @@ func (q *Queries) CountActiveSubscribers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countSearchUsers = `-- name: CountSearchUsers :one
+SELECT COUNT(*) FROM users WHERE email ILIKE '%' || $1 || '%'
+`
+
+func (q *Queries) CountSearchUsers(ctx context.Context, dollar_1 pgtype.Text) (int64, error) {
+	row := q.db.QueryRow(ctx, countSearchUsers, dollar_1)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSearchUsersByRole = `-- name: CountSearchUsersByRole :one
+SELECT COUNT(*) FROM users WHERE email ILIKE '%' || $1 || '%' AND role = $2
+`
+
+type CountSearchUsersByRoleParams struct {
+	Column1 pgtype.Text `json:"column_1"`
+	Role    pgtype.Text `json:"role"`
+}
+
+func (q *Queries) CountSearchUsersByRole(ctx context.Context, arg CountSearchUsersByRoleParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSearchUsersByRole, arg.Column1, arg.Role)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT COUNT(*) FROM users
 `
@@ -189,6 +216,94 @@ type ListUsersParams struct {
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
 	rows, err := q.db.Query(ctx, listUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.Role,
+			&i.IsActive,
+			&i.AnomalyScore,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchUsers = `-- name: SearchUsers :many
+SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users
+WHERE email ILIKE '%' || $1 || '%'
+ORDER BY created_at DESC LIMIT $2 OFFSET $3
+`
+
+type SearchUsersParams struct {
+	Column1 pgtype.Text `json:"column_1"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+}
+
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, searchUsers, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.Role,
+			&i.IsActive,
+			&i.AnomalyScore,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchUsersByRole = `-- name: SearchUsersByRole :many
+SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users
+WHERE email ILIKE '%' || $1 || '%' AND role = $2
+ORDER BY created_at DESC LIMIT $3 OFFSET $4
+`
+
+type SearchUsersByRoleParams struct {
+	Column1 pgtype.Text `json:"column_1"`
+	Role    pgtype.Text `json:"role"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+}
+
+func (q *Queries) SearchUsersByRole(ctx context.Context, arg SearchUsersByRoleParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, searchUsersByRole,
+		arg.Column1,
+		arg.Role,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,53 @@
+{{define "content"}}
+<div class="row row-cards">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-2">
+                    <code class="fs-3">{{.Code.Code}}</code>
+                </div>
+                <div class="mb-2"><strong>Label:</strong> {{.Code.Label}}</div>
+                <div class="mb-2"><strong>Product:</strong> {{.Code.ProductID}}</div>
+                <div class="mb-2"><strong>Max logins/email:</strong> {{.Code.MaxLoginsPerEmail}}</div>
+                <div class="mb-2"><strong>Status:</strong>
+                    {{if .Code.IsActive}}<span class="badge bg-green">Active</span>
+                    {{else}}<span class="badge bg-red">Revoked</span>{{end}}
+                </div>
+                <div class="mb-2"><strong>Expires:</strong> {{.Code.ExpiresAt}}</div>
+                <div class="text-muted small"><strong>Created:</strong> {{.Code.CreatedAt}}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-users me-2"></i>Login History</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Login Count</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Logins}}
+                        <tr>
+                            <td>{{.Email}}</td>
+                            <td><span class="badge bg-blue">{{.LoginCount}}</span></td>
+                            <td>{{.LastLoginAt}}</td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="3" class="text-muted text-center">No logins yet</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

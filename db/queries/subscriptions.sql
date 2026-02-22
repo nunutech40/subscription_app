@@ -40,3 +40,20 @@ ORDER BY s.expires_at ASC;
 UPDATE subscriptions
 SET xendit_invoice_id = $2
 WHERE id = $1;
+
+-- name: ListAllSubscriptions :many
+SELECT s.*, u.email, u.name FROM subscriptions s
+JOIN users u ON u.id = s.user_id
+ORDER BY s.created_at DESC LIMIT $1 OFFSET $2;
+
+-- name: ListSubscriptionsByStatus :many
+SELECT s.*, u.email, u.name FROM subscriptions s
+JOIN users u ON u.id = s.user_id
+WHERE s.status = $1
+ORDER BY s.created_at DESC LIMIT $2 OFFSET $3;
+
+-- name: GetTotalRevenue :one
+SELECT COALESCE(SUM(amount_paid_idr), 0)::bigint FROM subscriptions WHERE status = 'active';
+
+-- name: CountAllSubscriptions :one
+SELECT COUNT(*) FROM subscriptions;

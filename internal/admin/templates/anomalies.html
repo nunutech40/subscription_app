@@ -1,0 +1,55 @@
+{{define "content"}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-alert-triangle me-2"></i>Flagged Accounts</h3>
+        <div class="card-actions">
+            <span class="text-muted">Threshold: warning=10, lock=25, block=50</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Score</th>
+                    <th>Last Event</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Anomalies}}
+                <tr>
+                    <td>
+                        <a href="/admin/users/{{.UserID}}">{{.Email}}</a>
+                        <div class="text-muted small">{{.Name}}</div>
+                    </td>
+                    <td>
+                        {{if ge .Score 50}}<span class="badge bg-red badge-pulse">{{.Score}}</span>
+                        {{else if ge .Score 25}}<span class="badge bg-orange">{{.Score}}</span>
+                        {{else}}<span class="badge bg-yellow">{{.Score}}</span>{{end}}
+                    </td>
+                    <td>
+                        <span class="badge bg-orange-lt">{{.LastEvent}}</span>
+                        <div class="text-muted small">{{.LastEventTime}}</div>
+                    </td>
+                    <td>
+                        {{if .IsActive}}<span class="badge bg-green">Active</span>
+                        {{else}}<span class="badge bg-red">Locked</span>{{end}}
+                    </td>
+                    <td>
+                        <a href="/admin/users/{{.UserID}}" class="btn btn-sm btn-outline-primary">
+                            <i class="ti ti-eye"></i> Detail
+                        </a>
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="5" class="text-muted text-center">No flagged accounts 🎉</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}

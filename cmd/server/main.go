@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	adminpkg "github.com/nununugraha/sains-api/internal/admin"
 	"github.com/nununugraha/sains-api/internal/config"
 	"github.com/nununugraha/sains-api/internal/database"
 	"github.com/nununugraha/sains-api/internal/handler"
@@ -113,18 +114,46 @@ func main() {
 	}
 
 	// ── Admin routes ─────────────────────────────────────────────────
-	admin := api.Group("/admin")
-	admin.Use(middleware.AuthMiddleware(tokenService))
-	admin.Use(middleware.AdminMiddleware())
+	adminAPI := api.Group("/admin")
+	adminAPI.Use(middleware.AuthMiddleware(tokenService))
+	adminAPI.Use(middleware.AdminMiddleware())
 	{
-		admin.POST("/pricing-plans", planHandler.CreatePlan)
-		admin.PUT("/pricing-plans/:id", planHandler.UpdatePlan)
+		adminAPI.POST("/pricing-plans", planHandler.CreatePlan)
+		adminAPI.PUT("/pricing-plans/:id", planHandler.UpdatePlan)
 
 		// Guest codes
-		admin.POST("/guest-codes", guestHandler.CreateGuestCode)
-		admin.GET("/guest-codes", guestHandler.ListGuestCodes)
-		admin.GET("/guest-codes/:id", guestHandler.GetGuestCodeDetail)
-		admin.DELETE("/guest-codes/:id", guestHandler.RevokeGuestCode)
+		adminAPI.POST("/guest-codes", guestHandler.CreateGuestCode)
+		adminAPI.GET("/guest-codes", guestHandler.ListGuestCodes)
+		adminAPI.GET("/guest-codes/:id", guestHandler.GetGuestCodeDetail)
+		adminAPI.DELETE("/guest-codes/:id", guestHandler.RevokeGuestCode)
+	}
+
+	// ── Admin Dashboard (HTMX) ──────────────────────────────────────
+	adminDash := adminpkg.NewAdminHandler(queries, authService, tokenService)
+	adminUI := r.Group("/admin")
+	{
+		// Public routes (no auth required)
+		adminUI.GET("/login", adminDash.LoginPage)
+		adminUI.POST("/login", adminDash.LoginPost)
+		adminUI.GET("/logout", adminDash.Logout)
+
+		// Protected routes (require admin cookie)
+		protected := adminUI.Group("")
+		protected.Use(adminDash.AdminAuthMiddleware())
+		{
+			protected.GET("/", adminDash.Dashboard)
+			protected.GET("/users", adminDash.Users)
+			protected.GET("/users/:id", adminDash.UserDetail)
+			protected.POST("/users/:id/lock", adminDash.LockUser)
+			protected.POST("/users/:id/unlock", adminDash.UnlockUser)
+			protected.GET("/anomalies", adminDash.Anomalies)
+			protected.GET("/guest-codes", adminDash.GuestCodes)
+			protected.GET("/guest-codes/:id", adminDash.GuestCodeDetail)
+			protected.POST("/guest-codes/create", adminDash.CreateGuestCode)
+			protected.DELETE("/guest-codes/:id/revoke", adminDash.RevokeGuestCode)
+			protected.GET("/subscriptions", adminDash.Subscriptions)
+			protected.GET("/pricing", adminDash.Pricing)
+		}
 	}
 
 	// ── Start server ─────────────────────────────────────────────────

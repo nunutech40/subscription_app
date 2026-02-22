@@ -24,6 +24,22 @@ SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users;
 
+-- name: SearchUsers :many
+SELECT * FROM users
+WHERE email ILIKE '%' || $1 || '%'
+ORDER BY created_at DESC LIMIT $2 OFFSET $3;
+
+-- name: SearchUsersByRole :many
+SELECT * FROM users
+WHERE email ILIKE '%' || $1 || '%' AND role = $2
+ORDER BY created_at DESC LIMIT $3 OFFSET $4;
+
+-- name: CountSearchUsers :one
+SELECT COUNT(*) FROM users WHERE email ILIKE '%' || $1 || '%';
+
+-- name: CountSearchUsersByRole :one
+SELECT COUNT(*) FROM users WHERE email ILIKE '%' || $1 || '%' AND role = $2;
+
 -- name: GetUserAnomalyScore :one
 SELECT COALESCE(SUM(score_delta), 0)::bigint FROM anomaly_logs WHERE user_id = $1;
 

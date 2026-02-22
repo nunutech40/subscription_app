@@ -34,3 +34,6 @@ WHERE guest_code_id IS NOT NULL AND is_active = TRUE AND expires_at > now();
 UPDATE sessions
 SET is_active = FALSE, revoked_at = now(), revoke_reason = 'expired'
 WHERE is_active = TRUE AND expires_at < now();
+
+-- name: ListSessionsByUser :many
+SELECT * FROM sessions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20;

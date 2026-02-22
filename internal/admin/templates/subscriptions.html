@@ -1,0 +1,54 @@
+{{define "content"}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-credit-card me-2"></i>All Subscriptions</h3>
+        <div class="card-actions">
+            <select name="status" class="form-select form-select-sm" style="width:150px" hx-get="/admin/subscriptions"
+                hx-target="#subs-table" hx-trigger="change">
+                <option value="">All Status</option>
+                <option value="active" {{if eq .StatusFilter "active" }} selected{{end}}>Active</option>
+                <option value="pending" {{if eq .StatusFilter "pending" }} selected{{end}}>Pending</option>
+                <option value="expired" {{if eq .StatusFilter "expired" }} selected{{end}}>Expired</option>
+            </select>
+        </div>
+    </div>
+    <div id="subs-table">
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Product</th>
+                        <th>Segment</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Starts</th>
+                        <th>Expires</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Subscriptions}}
+                    <tr>
+                        <td><a href="/admin/users/{{.UserID}}">{{.Email}}</a></td>
+                        <td>{{.ProductID}}</td>
+                        <td><span class="badge bg-blue-lt">{{.Segment}}</span></td>
+                        <td>Rp {{.Amount}}</td>
+                        <td>
+                            {{if eq .Status "active"}}<span class="badge bg-green">Active</span>
+                            {{else if eq .Status "pending"}}<span class="badge bg-yellow">Pending</span>
+                            {{else}}<span class="badge bg-red">{{.Status}}</span>{{end}}
+                        </td>
+                        <td>{{.StartsAt}}</td>
+                        <td>{{.ExpiresAt}}</td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="7" class="text-muted text-center">No subscriptions</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

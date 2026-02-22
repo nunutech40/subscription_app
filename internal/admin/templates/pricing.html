@@ -1,0 +1,74 @@
+{{define "content"}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-currency-dollar me-2"></i>Pricing Plans</h3>
+        <div class="card-actions">
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#add-plan-modal">
+                <i class="ti ti-plus me-1"></i>Add Plan
+            </button>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Segment</th>
+                    <th>Duration</th>
+                    <th>Days</th>
+                    <th>Price (IDR)</th>
+                    <th>Label</th>
+                    <th>Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Plans}}
+                <tr>
+                    <td>{{.ProductID}}</td>
+                    <td><span class="badge bg-blue-lt">{{.Segment}}</span></td>
+                    <td>{{.Duration}}</td>
+                    <td>{{.DurationDays}}</td>
+                    <td>
+                        <span class="editable" contenteditable="true" hx-put="/admin/pricing/{{.ID}}" hx-trigger="blur"
+                            hx-target="this" hx-vals='js:{"price":parseInt(event.target.innerText.replace(/\D/g,""))}'>
+                            {{.PriceIDR}}
+                        </span>
+                    </td>
+                    <td>{{.Label}}</td>
+                    <td>
+                        {{if .IsActive}}<span class="badge bg-green">Yes</span>
+                        {{else}}<span class="badge bg-red">No</span>{{end}}
+                    </td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="7" class="text-muted text-center">No plans</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Segment breakdown -->
+<div class="row row-cards mt-3">
+    {{range .Segments}}
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">{{.Name}}</h3>
+                <span class="badge bg-blue-lt">{{.Count}} plans</span>
+            </div>
+            <div class="list-group list-group-flush">
+                {{range .Plans}}
+                <div class="list-group-item d-flex justify-content-between">
+                    <span>{{.Duration}}</span>
+                    <strong>Rp {{.PriceIDR}}</strong>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    {{end}}
+</div>
+{{end}}

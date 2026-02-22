@@ -1,0 +1,166 @@
+{{define "content"}}
+<div class="row row-cards">
+    <!-- User Info -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <span class="avatar avatar-lg bg-blue-lt me-3">
+                        <i class="ti ti-user" style="font-size:24px"></i>
+                    </span>
+                    <div>
+                        <h3 class="mb-0">{{.User.Name}}</h3>
+                        <div class="text-muted">{{.User.Email}}</div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <span class="badge bg-blue-lt me-1">{{.User.Role}}</span>
+                    {{if .User.IsActive}}<span class="badge bg-green">Active</span>
+                    {{else}}<span class="badge bg-red">Locked</span>{{end}}
+                </div>
+                <div class="mb-2">
+                    <strong>Anomaly Score:</strong>
+                    {{if gt .User.AnomalyScore 25}}<span class="badge bg-red badge-pulse">{{.User.AnomalyScore}}</span>
+                    {{else if gt .User.AnomalyScore 10}}<span class="badge bg-orange">{{.User.AnomalyScore}}</span>
+                    {{else}}<span class="badge bg-green">{{.User.AnomalyScore}}</span>{{end}}
+                </div>
+                <div class="text-muted small">Registered: {{.User.CreatedAt}}</div>
+                <div class="mt-3">
+                    {{if .User.IsActive}}
+                    <button class="btn btn-danger btn-sm w-100" hx-post="/admin/users/{{.User.ID}}/lock"
+                        hx-target="body" hx-swap="none" hx-confirm="Lock user {{.User.Email}}?"
+                        onclick="setTimeout(()=>location.reload(), 500)">
+                        <i class="ti ti-lock me-1"></i>Lock Account
+                    </button>
+                    {{else}}
+                    <button class="btn btn-success btn-sm w-100" hx-post="/admin/users/{{.User.ID}}/unlock"
+                        hx-target="body" hx-swap="none" hx-confirm="Unlock user {{.User.Email}}?"
+                        onclick="setTimeout(()=>location.reload(), 500)">
+                        <i class="ti ti-lock-open me-1"></i>Unlock Account
+                    </button>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-devices me-2"></i>Sessions</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table table-sm">
+                    <thead>
+                        <tr>
+                            <th>IP</th>
+                            <th>User Agent</th>
+                            <th>Active</th>
+                            <th>Expires</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Sessions}}
+                        <tr>
+                            <td><code>{{.IP}}</code></td>
+                            <td class="text-truncate" style="max-width:300px">{{.UserAgent}}</td>
+                            <td>{{if .IsActive}}<span class="badge bg-green">Yes</span>{{else}}<span
+                                    class="badge bg-red">No</span>{{end}}</td>
+                            <td>{{.ExpiresAt}}</td>
+                            <td>{{.CreatedAt}}</td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="5" class="text-muted text-center">No sessions</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Anomaly Logs -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-alert-triangle me-2"></i>Anomaly Logs</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Score</th>
+                            <th>Detail</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .AnomalyLogs}}
+                        <tr>
+                            <td><span class="badge bg-orange-lt">{{.Event}}</span></td>
+                            <td>+{{.ScoreDelta}}</td>
+                            <td class="text-muted">{{.Detail}}</td>
+                            <td>{{.CreatedAt}}</td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center">Clean record 🎉</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Subscriptions -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-credit-card me-2"></i>Subscriptions</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Segment</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Starts</th>
+                            <th>Expires</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Subscriptions}}
+                        <tr>
+                            <td>{{.ProductID}}</td>
+                            <td><span class="badge bg-blue-lt">{{.Segment}}</span></td>
+                            <td>Rp {{.Amount}}</td>
+                            <td>
+                                {{if eq .Status "active"}}<span class="badge bg-green">Active</span>
+                                {{else}}<span class="badge bg-red">{{.Status}}</span>{{end}}
+                            </td>
+                            <td>{{.StartsAt}}</td>
+                            <td>{{.ExpiresAt}}</td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="6" class="text-muted text-center">No subscriptions</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

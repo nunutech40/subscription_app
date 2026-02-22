@@ -1,0 +1,136 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="id" data-bs-theme="dark">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} — SAINS Admin</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    .stat-card {
+      transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .badge-pulse {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .6
+      }
+    }
+
+    .htmx-indicator {
+      display: none;
+    }
+
+    .htmx-request .htmx-indicator {
+      display: inline-block;
+    }
+  </style>
+</head>
+
+<body class="theme-dark">
+  <div class="page">
+    <!-- Sidebar -->
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <h1 class="navbar-brand navbar-brand-autodark">
+          <a href="/admin/">⚛️ SAINS Admin</a>
+        </h1>
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <ul class="navbar-nav pt-lg-3">
+            <li class="nav-item{{if eq .Active " dashboard"}} active{{end}}">
+              <a class="nav-link" href="/admin/">
+                <span class="nav-link-icon"><i class="ti ti-dashboard"></i></span>
+                <span class="nav-link-title">Dashboard</span>
+              </a>
+            </li>
+            <li class="nav-item{{if eq .Active " users"}} active{{end}}">
+              <a class="nav-link" href="/admin/users">
+                <span class="nav-link-icon"><i class="ti ti-users"></i></span>
+                <span class="nav-link-title">Users</span>
+              </a>
+            </li>
+            <li class="nav-item{{if eq .Active " subscriptions"}} active{{end}}">
+              <a class="nav-link" href="/admin/subscriptions">
+                <span class="nav-link-icon"><i class="ti ti-credit-card"></i></span>
+                <span class="nav-link-title">Subscriptions</span>
+              </a>
+            </li>
+            <li class="nav-item{{if eq .Active " guest-codes"}} active{{end}}">
+              <a class="nav-link" href="/admin/guest-codes">
+                <span class="nav-link-icon"><i class="ti ti-ticket"></i></span>
+                <span class="nav-link-title">Guest Codes</span>
+              </a>
+            </li>
+            <li class="nav-item{{if eq .Active " pricing"}} active{{end}}">
+              <a class="nav-link" href="/admin/pricing">
+                <span class="nav-link-icon"><i class="ti ti-currency-dollar"></i></span>
+                <span class="nav-link-title">Pricing</span>
+              </a>
+            </li>
+            <li class="nav-item{{if eq .Active " anomalies"}} active{{end}}">
+              <a class="nav-link" href="/admin/anomalies">
+                <span class="nav-link-icon"><i class="ti ti-alert-triangle"></i></span>
+                <span class="nav-link-title">Anomalies</span>
+              </a>
+            </li>
+            <li class="nav-item mt-auto border-top pt-2">
+              <a class="nav-link text-danger" href="/admin/logout">
+                <span class="nav-link-icon"><i class="ti ti-logout"></i></span>
+                <span class="nav-link-title">Logout</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="page-wrapper">
+      <div class="page-header d-print-none">
+        <div class="container-xl">
+          <div class="row align-items-center">
+            <div class="col">
+              <div class="page-pretitle">SAINS Admin Panel</div>
+              <h2 class="page-title">{{.Title}}</h2>
+            </div>
+            {{if .AdminEmail}}
+            <div class="col-auto">
+              <span class="text-muted"><i class="ti ti-user-circle me-1"></i>{{.AdminEmail}}</span>
+            </div>
+            {{end}}
+          </div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="container-xl">
+          {{template "content" .}}
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</body>
+
+</html>
+{{end}}

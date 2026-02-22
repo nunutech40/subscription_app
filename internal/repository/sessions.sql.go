@@ -167,6 +167,45 @@ func (q *Queries) GetSessionByRefreshToken(ctx context.Context, refreshTokenHash
 	return i, err
 }
 
+const listSessionsByUser = `-- name: ListSessionsByUser :many
+SELECT id, user_id, guest_code_id, guest_email, refresh_token_hash, device_fingerprint, ip_at_login, user_agent, country_code, is_active, revoked_at, revoke_reason, expires_at, created_at FROM sessions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20
+`
+
+func (q *Queries) ListSessionsByUser(ctx context.Context, userID pgtype.UUID) ([]Session, error) {
+	rows, err := q.db.Query(ctx, listSessionsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Session{}
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.GuestCodeID,
+			&i.GuestEmail,
+			&i.RefreshTokenHash,
+			&i.DeviceFingerprint,
+			&i.IpAtLogin,
+			&i.UserAgent,
+			&i.CountryCode,
+			&i.IsActive,
+			&i.RevokedAt,
+			&i.RevokeReason,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const revokeAllUserSessions = `-- name: RevokeAllUserSessions :exec
 UPDATE sessions
 SET is_active = FALSE, revoked_at = now(), revoke_reason = 'new_login'

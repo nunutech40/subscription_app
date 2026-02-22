@@ -1,0 +1,199 @@
+{{define "content"}}
+<!-- Stats Cards -->
+<div class="row row-deck row-cards" hx-get="/admin/partials/stats" hx-trigger="every 60s" hx-swap="innerHTML">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Total Revenue</div>
+                </div>
+                <div class="h1 mb-0">Rp {{.Stats.TotalRevenue}}</div>
+                <div class="text-muted">dari {{.Stats.TotalSubscriptions}} transaksi</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="subheader">Active Subscribers</div>
+                <div class="h1 mb-0">{{.Stats.ActiveSubscribers}}</div>
+                <div class="d-flex align-items-center">
+                    <div class="progress flex-fill me-2" style="height:6px">
+                        <div class="progress-bar bg-primary" style="width:{{.Stats.SubsPercent}}%"></div>
+                    </div>
+                    <span class="text-muted">{{.Stats.ActiveSubscribers}}/{{.Stats.MaxSubscribers}}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="subheader">Active Guests</div>
+                <div class="h1 mb-0">{{.Stats.ActiveGuests}}</div>
+                <div class="d-flex align-items-center">
+                    <div class="progress flex-fill me-2" style="height:6px">
+                        <div class="progress-bar bg-green" style="width:{{.Stats.GuestsPercent}}%"></div>
+                    </div>
+                    <span class="text-muted">{{.Stats.ActiveGuests}}/{{.Stats.MaxGuests}}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="subheader">Total Users</div>
+                <div class="h1 mb-0">{{.Stats.TotalUsers}}</div>
+                <div class="text-muted">{{.Stats.FlaggedUsers}} flagged</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck row-cards mt-3">
+    <!-- Chart: Subscription by Segment -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-chart-pie me-2"></i>Subscriptions by Segment</h3>
+            </div>
+            <div class="card-body">
+                <canvas id="segmentChart" height="220" data-chart="{{.SegmentChartJSON}}"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Subscriptions -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-credit-card me-2"></i>Recent Subscriptions</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Product</th>
+                            <th>Segment</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .RecentSubs}}
+                        <tr>
+                            <td>{{.Email}}</td>
+                            <td>{{.ProductID}}</td>
+                            <td><span class="badge bg-blue-lt">{{.Segment}}</span></td>
+                            <td>Rp {{.Amount}}</td>
+                            <td>
+                                {{if eq .Status "active"}}<span class="badge bg-green">Active</span>
+                                {{else if eq .Status "pending"}}<span class="badge bg-yellow">Pending</span>
+                                {{else}}<span class="badge bg-red">{{.Status}}</span>{{end}}
+                            </td>
+                            <td>{{.CreatedAt}}</td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="6" class="text-muted text-center">Belum ada subscription</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck row-cards mt-3">
+    <!-- Recent Anomalies -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-alert-triangle me-2"></i>Recent Anomalies</h3>
+            </div>
+            <div class="list-group list-group-flush">
+                {{range .RecentAnomalies}}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <strong>{{.Email}}</strong>
+                            <div class="text-muted small">{{.Event}} (+{{.ScoreDelta}})</div>
+                        </div>
+                        <span class="badge bg-orange">{{.TotalScore}}</span>
+                    </div>
+                </div>
+                {{else}}
+                <div class="list-group-item text-muted text-center">No anomalies 🎉</div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Guest Codes Summary -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-ticket me-2"></i>Active Guest Codes</h3>
+                <div class="card-actions">
+                    <a href="/admin/guest-codes" class="btn btn-primary btn-sm">Manage →</a>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Label</th>
+                            <th>Logins</th>
+                            <th>Expires</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .GuestCodes}}
+                        <tr>
+                            <td><code>{{.Code}}</code></td>
+                            <td>{{.Label}}</td>
+                            <td>{{.LoginCount}} uses</td>
+                            <td>{{.ExpiresAt}}</td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center">No active codes</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js Script: reads JSON from data-chart attribute to avoid Go template parser issues -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var el = document.getElementById('segmentChart');
+    if (!el) return;
+    var raw = el.getAttribute('data-chart');
+    if (!raw) { el.parentElement.innerHTML = '<div class="text-muted text-center py-4">No subscription data yet</div>'; return; }
+    try {
+        var segmentData = JSON.parse(raw);
+        if (segmentData.labels && segmentData.labels.length > 0) {
+            new Chart(el, {
+                type: 'doughnut',
+                data: {
+                    labels: segmentData.labels,
+                    datasets: [{ data: segmentData.values, backgroundColor: ['#206bc4','#2fb344','#f76707','#d63939','#ae3ec9','#0ca678'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 12 } } }, cutout: '60%' }
+            });
+        } else {
+            el.parentElement.innerHTML = '<div class="text-muted text-center py-4">No subscription data yet</div>';
+        }
+    } catch(e) { el.parentElement.innerHTML = '<div class="text-muted text-center py-4">No subscription data yet</div>'; }
+});
+</script>
+{{end}}

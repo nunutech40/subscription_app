@@ -1,0 +1,89 @@
+{{define "content"}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Users</h3>
+        <div class="card-actions">
+            <div class="input-group input-group-sm" style="width:300px">
+                <input type="text" class="form-control" placeholder="Search by email..." name="q" hx-get="/admin/users"
+                    hx-target="#users-table" hx-trigger="keyup changed delay:300ms" hx-include="[name='role']"
+                    value="{{.Query}}">
+                <select name="role" class="form-select" style="max-width:120px" hx-get="/admin/users"
+                    hx-target="#users-table" hx-trigger="change" hx-include="[name='q']">
+                    <option value="">All Roles</option>
+                    <option value="admin" {{if eq .RoleFilter "admin" }} selected{{end}}>Admin</option>
+                    <option value="subscriber" {{if eq .RoleFilter "subscriber" }} selected{{end}}>Subscriber</option>
+                    <option value="guest" {{if eq .RoleFilter "guest" }} selected{{end}}>Guest</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div id="users-table">
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Anomaly</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Users}}
+                    <tr id="user-row-{{.ID}}">
+                        <td><a href="/admin/users/{{.ID}}">{{.Email}}</a></td>
+                        <td>{{.Name}}</td>
+                        <td><span class="badge bg-blue-lt">{{.Role}}</span></td>
+                        <td>
+                            {{if .IsActive}}<span class="badge bg-green">Active</span>
+                            {{else}}<span class="badge bg-red">Locked</span>{{end}}
+                        </td>
+                        <td>
+                            {{if gt .AnomalyScore 25}}<span class="badge bg-red badge-pulse">{{.AnomalyScore}}</span>
+                            {{else if gt .AnomalyScore 10}}<span class="badge bg-orange">{{.AnomalyScore}}</span>
+                            {{else}}<span class="badge bg-green">{{.AnomalyScore}}</span>{{end}}
+                        </td>
+                        <td>{{.CreatedAt}}</td>
+                        <td>
+                            {{if .IsActive}}
+                            <button class="btn btn-sm btn-outline-danger" hx-post="/admin/users/{{.ID}}/lock"
+                                hx-target="#user-row-{{.ID}}" hx-swap="outerHTML" hx-confirm="Lock user {{.Email}}?">
+                                <i class="ti ti-lock"></i>
+                            </button>
+                            {{else}}
+                            <button class="btn btn-sm btn-outline-success" hx-post="/admin/users/{{.ID}}/unlock"
+                                hx-target="#user-row-{{.ID}}" hx-swap="outerHTML" hx-confirm="Unlock user {{.Email}}?">
+                                <i class="ti ti-lock-open"></i>
+                            </button>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="7" class="text-muted text-center">No users found</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{if gt .TotalPages 1}}
+        <div class="card-footer d-flex align-items-center">
+            <p class="m-0 text-muted">Showing {{.Page}} of {{.TotalPages}} pages ({{.Total}} users)</p>
+            <ul class="pagination m-0 ms-auto">
+                {{if gt .Page 1}}
+                <li class="page-item"><a class="page-link"
+                        href="/admin/users?page={{.PrevPage}}&q={{.Query}}&role={{.RoleFilter}}">←</a></li>
+                {{end}}
+                {{if lt .Page .TotalPages}}
+                <li class="page-item"><a class="page-link"
+                        href="/admin/users?page={{.NextPage}}&q={{.Query}}&role={{.RoleFilter}}">→</a></li>
+                {{end}}
+            </ul>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}

@@ -2,6 +2,7 @@
 
 **Last updated:** 2026-02-22  
 **Stack:** Go 1.23+ · Gin · pgx · sqlc  
+**Docs:** [`docs/PRD.md`](docs/PRD.md) · [`docs/TRD.md`](docs/TRD.md)  
 **Ref:** `../atomic/docs/BACKEND_PLAN.md` · `../atomic/docs/EXECUTION_PLAN.md`
 
 ---
@@ -28,6 +29,14 @@ curl http://localhost:8080/health
 # → {"status":"ok","db":"ok","service":"sains-api"}
 ```
 
+### Admin Dashboard Login
+
+```
+URL:      http://localhost:8080/admin/login
+Email:    admin@sains.id
+Password: SainsAdmin2024!
+```
+
 ---
 
 ## Project Structure
@@ -36,6 +45,18 @@ curl http://localhost:8080/health
 api/
 ├── cmd/server/main.go          ← entry point, Gin setup, graceful shutdown
 ├── internal/
+│   ├── admin/                  ← Admin dashboard handler + embedded templates
+│   │   ├── admin_handler.go    ← All admin page handlers (~700 lines)
+│   │   └── templates/          ← HTML templates (go:embed)
+│   │       ├── layout.html     ← Tabler dark theme layout + sidebar
+│   │       ├── dashboard.html  ← Overview stats + recent activity
+│   │       ├── users.html      ← User list + search + filter
+│   │       ├── user_detail.html← User detail + sessions + anomalies
+│   │       ├── anomalies.html  ← Flagged accounts center
+│   │       ├── guest_codes.html← Guest code list + generate form
+│   │       ├── guest_code_detail.html ← Code detail + login history
+│   │       ├── subscriptions.html ← Subscription list + filter
+│   │       └── pricing.html    ← Pricing plans + segment groups
 │   ├── config/config.go        ← env loader + validation
 │   ├── database/postgres.go    ← pgx pool init + close
 │   ├── handler/                ← HTTP handler (per resource)
@@ -46,8 +67,6 @@ api/
 ├── db/
 │   ├── migrations/             ← SQL migration files (golang-migrate)
 │   └── queries/                ← SQL query files (sqlc)
-├── templates/                  ← Templ files (admin dashboard)
-├── static/                     ← CSS, JS, images (admin dashboard)
 ├── go.mod
 ├── Makefile
 ├── .env                        ← ⚠️ JANGAN commit! Ada di .gitignore
@@ -148,7 +167,7 @@ make clean             # Remove build artifacts
 
 ---
 
-## API Endpoints (Current)
+## API Endpoints — REST API (JSON)
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
@@ -156,6 +175,7 @@ make clean             # Remove build artifacts
 | GET | `/api/ping` | Simple ping/pong | None |
 | POST | `/api/auth/register` | Registrasi user baru | None |
 | POST | `/api/auth/login` | Login → JWT + refresh cookie | None |
+| POST | `/api/auth/guest-login` | Guest login (code + email) | None |
 | POST | `/api/auth/logout` | Logout + revoke session | JWT |
 | GET | `/api/auth/me` | Get current user info | JWT |
 | GET | `/api/plans` | List pricing plans (?product&segment) | None |
@@ -167,13 +187,33 @@ make clean             # Remove build artifacts
 | POST | `/api/xendit/webhook` | Xendit payment callback | Token |
 | POST | `/api/admin/pricing-plans` | Create pricing plan | Admin |
 | PUT | `/api/admin/pricing-plans/:id` | Update pricing plan | Admin |
-| POST | `/api/auth/guest-login` | Guest login (code + email) | None |
 | POST | `/api/admin/guest-codes` | Create guest code | Admin |
 | GET | `/api/admin/guest-codes` | List guest codes | Admin |
 | GET | `/api/admin/guest-codes/:id` | Guest code detail + logins | Admin |
 | DELETE | `/api/admin/guest-codes/:id` | Revoke guest code | Admin |
 
-> Endpoints akan bertambah seiring step di `EXECUTION_PLAN.md`.
+## Admin Dashboard — HTML Routes (HTMX)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/admin/login` | Login page | None |
+| POST | `/admin/login` | Login submit (form) | None |
+| GET | `/admin/logout` | Logout + clear cookie | None |
+| GET | `/admin/` | Dashboard overview — stats, quota, recent activity | Cookie |
+| GET | `/admin/users` | User list — search, filter by role, pagination | Cookie |
+| GET | `/admin/users/:id` | User detail — sessions, anomaly logs, subscriptions | Cookie |
+| POST | `/admin/users/:id/lock` | Lock user + revoke all sessions | Cookie |
+| POST | `/admin/users/:id/unlock` | Unlock user | Cookie |
+| GET | `/admin/anomalies` | Flagged accounts — sorted by anomaly score | Cookie |
+| GET | `/admin/guest-codes` | Guest code list + usage stats | Cookie |
+| GET | `/admin/guest-codes/:id` | Guest code detail + login history | Cookie |
+| POST | `/admin/guest-codes/create` | Generate new guest code | Cookie |
+| DELETE | `/admin/guest-codes/:id/revoke` | Revoke guest code | Cookie |
+| GET | `/admin/subscriptions` | Subscription list — filter by status | Cookie |
+| GET | `/admin/pricing` | Pricing plans — grouped by segment | Cookie |
+
+> `/api/*` routes return **JSON** — untuk frontend app (Atomic, sains.id)
+> `/admin/*` routes return **HTML** — server-rendered admin dashboard via HTMX
 
 ---
 

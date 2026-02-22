@@ -38,6 +38,17 @@ func (q *Queries) CountActiveSubscriptions(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countAllSubscriptions = `-- name: CountAllSubscriptions :one
+SELECT COUNT(*) FROM subscriptions
+`
+
+func (q *Queries) CountAllSubscriptions(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countAllSubscriptions)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (
   user_id, product_id, plan_id, segment,
@@ -145,6 +156,82 @@ func (q *Queries) GetSubscriptionByID(ctx context.Context, id pgtype.UUID) (Subs
 	return i, err
 }
 
+const getTotalRevenue = `-- name: GetTotalRevenue :one
+SELECT COALESCE(SUM(amount_paid_idr), 0)::bigint FROM subscriptions WHERE status = 'active'
+`
+
+func (q *Queries) GetTotalRevenue(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, getTotalRevenue)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const listAllSubscriptions = `-- name: ListAllSubscriptions :many
+SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, u.email, u.name FROM subscriptions s
+JOIN users u ON u.id = s.user_id
+ORDER BY s.created_at DESC LIMIT $1 OFFSET $2
+`
+
+type ListAllSubscriptionsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type ListAllSubscriptionsRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	ProductID       pgtype.Text        `json:"product_id"`
+	PlanID          pgtype.UUID        `json:"plan_id"`
+	Segment         string             `json:"segment"`
+	XenditInvoiceID pgtype.Text        `json:"xendit_invoice_id"`
+	XenditPaymentID pgtype.Text        `json:"xendit_payment_id"`
+	AmountPaidIdr   pgtype.Int4        `json:"amount_paid_idr"`
+	Status          pgtype.Text        `json:"status"`
+	PaidAt          pgtype.Timestamptz `json:"paid_at"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Email           string             `json:"email"`
+	Name            pgtype.Text        `json:"name"`
+}
+
+func (q *Queries) ListAllSubscriptions(ctx context.Context, arg ListAllSubscriptionsParams) ([]ListAllSubscriptionsRow, error) {
+	rows, err := q.db.Query(ctx, listAllSubscriptions, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllSubscriptionsRow{}
+	for rows.Next() {
+		var i ListAllSubscriptionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ProductID,
+			&i.PlanID,
+			&i.Segment,
+			&i.XenditInvoiceID,
+			&i.XenditPaymentID,
+			&i.AmountPaidIdr,
+			&i.Status,
+			&i.PaidAt,
+			&i.StartsAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.Email,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpiringSubscriptions = `-- name: ListExpiringSubscriptions :many
 SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, u.email, u.name FROM subscriptions s
 JOIN users u ON u.id = s.user_id
@@ -179,6 +266,73 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context) ([]ListExpiring
 	items := []ListExpiringSubscriptionsRow{}
 	for rows.Next() {
 		var i ListExpiringSubscriptionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ProductID,
+			&i.PlanID,
+			&i.Segment,
+			&i.XenditInvoiceID,
+			&i.XenditPaymentID,
+			&i.AmountPaidIdr,
+			&i.Status,
+			&i.PaidAt,
+			&i.StartsAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.Email,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSubscriptionsByStatus = `-- name: ListSubscriptionsByStatus :many
+SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, u.email, u.name FROM subscriptions s
+JOIN users u ON u.id = s.user_id
+WHERE s.status = $1
+ORDER BY s.created_at DESC LIMIT $2 OFFSET $3
+`
+
+type ListSubscriptionsByStatusParams struct {
+	Status pgtype.Text `json:"status"`
+	Limit  int32       `json:"limit"`
+	Offset int32       `json:"offset"`
+}
+
+type ListSubscriptionsByStatusRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	ProductID       pgtype.Text        `json:"product_id"`
+	PlanID          pgtype.UUID        `json:"plan_id"`
+	Segment         string             `json:"segment"`
+	XenditInvoiceID pgtype.Text        `json:"xendit_invoice_id"`
+	XenditPaymentID pgtype.Text        `json:"xendit_payment_id"`
+	AmountPaidIdr   pgtype.Int4        `json:"amount_paid_idr"`
+	Status          pgtype.Text        `json:"status"`
+	PaidAt          pgtype.Timestamptz `json:"paid_at"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Email           string             `json:"email"`
+	Name            pgtype.Text        `json:"name"`
+}
+
+func (q *Queries) ListSubscriptionsByStatus(ctx context.Context, arg ListSubscriptionsByStatusParams) ([]ListSubscriptionsByStatusRow, error) {
+	rows, err := q.db.Query(ctx, listSubscriptionsByStatus, arg.Status, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSubscriptionsByStatusRow{}
+	for rows.Next() {
+		var i ListSubscriptionsByStatusRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,

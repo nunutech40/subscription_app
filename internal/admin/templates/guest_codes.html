@@ -1,0 +1,87 @@
+{{define "content"}}
+<!-- Create form -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-plus me-2"></i>Generate Guest Code</h3>
+    </div>
+    <div class="card-body">
+        <form hx-post="/admin/guest-codes/create" hx-target="#codes-table" hx-swap="outerHTML">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Label</label>
+                    <input type="text" name="label" class="form-control" placeholder="e.g. Demo Guru SMA 1" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Logins/Email</label>
+                    <input type="number" name="max_logins" class="form-control" value="2" min="1" max="10">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Duration (hours)</label>
+                    <input type="number" name="expires_hours" class="form-control" value="48" min="1" max="720">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="ti ti-ticket me-1"></i>Generate
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Codes list -->
+<div id="codes-table">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">All Guest Codes</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Label</th>
+                        <th>Product</th>
+                        <th>Max/Email</th>
+                        <th>Total Logins</th>
+                        <th>Status</th>
+                        <th>Expires</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Codes}}
+                    <tr id="code-{{.ID}}">
+                        <td><code class="fs-5">{{.Code}}</code></td>
+                        <td>{{.Label}}</td>
+                        <td>{{.ProductID}}</td>
+                        <td>{{.MaxLoginsPerEmail}}</td>
+                        <td>{{.TotalLogins}}</td>
+                        <td>
+                            {{if .IsActive}}<span class="badge bg-green">Active</span>
+                            {{else}}<span class="badge bg-red">Revoked</span>{{end}}
+                        </td>
+                        <td>{{.ExpiresAt}}</td>
+                        <td>
+                            <a href="/admin/guest-codes/{{.ID}}" class="btn btn-sm btn-outline-primary me-1">
+                                <i class="ti ti-eye"></i>
+                            </a>
+                            {{if .IsActive}}
+                            <button class="btn btn-sm btn-outline-danger" hx-delete="/admin/guest-codes/{{.ID}}/revoke"
+                                hx-target="#code-{{.ID}}" hx-swap="outerHTML" hx-confirm="Revoke code {{.Code}}?">
+                                <i class="ti ti-ban"></i>
+                            </button>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="8" class="text-muted text-center">No guest codes yet</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
