@@ -1,0 +1,299 @@
+{{define "content"}}
+<!-- Summary Cards -->
+<div class="row row-cards mb-3">
+    <div class="col-sm-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader text-muted">TOTAL REVENUE</div>
+                </div>
+                <div class="h1 mb-0 mt-2">Rp {{.TotalRevenue}}</div>
+                <div class="text-muted mt-1">dari semua transaksi aktif</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader text-muted">ACTIVE SUBSCRIBERS</div>
+                </div>
+                <div class="h1 mb-0 mt-2">{{.ActiveSubs}}</div>
+                <div class="text-muted mt-1">subscriber aktif saat ini</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader text-muted">TOTAL SUBSCRIPTIONS</div>
+                </div>
+                <div class="h1 mb-0 mt-2">{{.TotalSubs}}</div>
+                <div class="text-muted mt-1">semua subscription (all status)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue Line Chart -->
+<div class="row row-cards mb-3">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-chart-line me-2"></i>Monthly Revenue (12 Bulan Terakhir)</h3>
+            </div>
+            <div class="card-body">
+                <div id="revenue-chart-container" data-chart="{{.RevenueChartJSON}}"
+                    style="height: 300px; position: relative;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-chart-pie me-2"></i>Revenue by Segment</h3>
+            </div>
+            <div class="card-body">
+                <div id="segment-chart-container" data-chart="{{.SegmentChartJSON}}"
+                    style="height: 300px; position: relative;">
+                    <canvas id="segmentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Subscription Trend Chart -->
+<div class="row row-cards mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-chart-area me-2"></i>Subscription Trend (12 Bulan Terakhir)</h3>
+            </div>
+            <div class="card-body">
+                <div id="sub-chart-container" data-chart="{{.SubChartJSON}}" style="height: 300px; position: relative;">
+                    <canvas id="subChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Segment Breakdown Table -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-table me-2"></i>Revenue Breakdown by Segment</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+            <thead>
+                <tr>
+                    <th>Segment</th>
+                    <th>Total Revenue</th>
+                    <th>Subscriptions</th>
+                    <th>Avg. Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .SegmentRows}}
+                <tr>
+                    <td>
+                        <span class="badge {{if eq .Segment " global"}}bg-blue-lt{{else if eq .Segment "student"
+                            }}bg-green-lt{{else}}bg-orange-lt{{end}}">
+                            {{.Segment}}
+                        </span>
+                    </td>
+                    <td><strong>Rp {{.Revenue}}</strong></td>
+                    <td>{{.Count}}</td>
+                    <td>Rp {{.AvgValue}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="4" class="text-muted text-center">
+                        <i class="ti ti-chart-bar-off me-1"></i>Belum ada data revenue
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // ── Revenue Line Chart ──────────────────────────
+        var revContainer = document.getElementById('revenue-chart-container');
+        var revData = JSON.parse(revContainer.getAttribute('data-chart'));
+
+        if (revData.labels && revData.labels.length > 0) {
+            new Chart(document.getElementById('revenueChart'), {
+                type: 'line',
+                data: {
+                    labels: revData.labels,
+                    datasets: [{
+                        label: 'Revenue (IDR)',
+                        data: revData.values,
+                        borderColor: '#4299e1',
+                        backgroundColor: 'rgba(66, 153, 225, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#4299e1',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return 'Rp ' + ctx.parsed.y.toLocaleString('id-ID');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return 'Rp ' + (value / 1000).toFixed(0) + 'k';
+                                },
+                                color: '#a0aec0'
+                            },
+                            grid: { color: 'rgba(255,255,255,0.06)' }
+                        },
+                        x: {
+                            ticks: { color: '#a0aec0' },
+                            grid: { color: 'rgba(255,255,255,0.06)' }
+                        }
+                    }
+                }
+            });
+        } else {
+            revContainer.innerHTML = '<div class="text-muted text-center py-5"><i class="ti ti-chart-line-off" style="font-size:2rem"></i><br>Belum ada data revenue</div>';
+        }
+
+        // ── Segment Doughnut Chart ──────────────────────
+        var segContainer = document.getElementById('segment-chart-container');
+        var segData = JSON.parse(segContainer.getAttribute('data-chart'));
+
+        if (segData.labels && segData.labels.length > 0) {
+            var segColors = [];
+            segData.labels.forEach(function (label) {
+                if (label === 'global') segColors.push('#4299e1');
+                else if (label === 'student') segColors.push('#48bb78');
+                else segColors.push('#ed8936');
+            });
+
+            new Chart(document.getElementById('segmentChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: segData.labels,
+                    datasets: [{
+                        data: segData.values,
+                        backgroundColor: segColors,
+                        borderColor: '#1a1e2e',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#a0aec0', padding: 16 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    var idx = ctx.dataIndex;
+                                    return ctx.label + ': Rp ' + ctx.parsed.toLocaleString('id-ID') +
+                                        ' (' + segData.counts[idx] + ' subs)';
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+        } else {
+            segContainer.innerHTML = '<div class="text-muted text-center py-5"><i class="ti ti-chart-pie-off" style="font-size:2rem"></i><br>Belum ada data segment</div>';
+        }
+
+        // ── Subscription Trend Area Chart ───────────────
+        var subContainer = document.getElementById('sub-chart-container');
+        var subData = JSON.parse(subContainer.getAttribute('data-chart'));
+
+        if (subData.months && subData.months.length > 0) {
+            new Chart(document.getElementById('subChart'), {
+                type: 'bar',
+                data: {
+                    labels: subData.months,
+                    datasets: [
+                        {
+                            label: 'Active',
+                            data: subData.active,
+                            backgroundColor: 'rgba(72, 187, 120, 0.8)',
+                            borderColor: '#48bb78',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Expired',
+                            data: subData.expired,
+                            backgroundColor: 'rgba(245, 101, 101, 0.8)',
+                            borderColor: '#f56565',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Pending',
+                            data: subData.pending,
+                            backgroundColor: 'rgba(237, 195, 0, 0.8)',
+                            borderColor: '#edc300',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#a0aec0', padding: 16 }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            stacked: true,
+                            ticks: { color: '#a0aec0', stepSize: 1 },
+                            grid: { color: 'rgba(255,255,255,0.06)' }
+                        },
+                        x: {
+                            stacked: true,
+                            ticks: { color: '#a0aec0' },
+                            grid: { color: 'rgba(255,255,255,0.06)' }
+                        }
+                    }
+                }
+            });
+        } else {
+            subContainer.innerHTML = '<div class="text-muted text-center py-5"><i class="ti ti-chart-bar-off" style="font-size:2rem"></i><br>Belum ada data subscription trend</div>';
+        }
+    });
+</script>
+{{end}}

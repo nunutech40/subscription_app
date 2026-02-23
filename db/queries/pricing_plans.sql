@@ -15,3 +15,17 @@ RETURNING *;
 UPDATE pricing_plans
 SET price_idr = $2, label = $3, is_active = $4
 WHERE id = $1;
+
+-- name: ListAllPricingPlans :many
+SELECT * FROM pricing_plans
+ORDER BY segment, price_idr ASC;
+
+-- name: UpdatePricingPlanPrice :exec
+UPDATE pricing_plans
+SET price_idr = $2
+WHERE id = $1;
+
+-- name: TogglePricingPlanActive :exec
+UPDATE pricing_plans
+SET is_active = NOT is_active
+WHERE id = $1;

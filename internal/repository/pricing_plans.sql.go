@@ -73,6 +73,41 @@ func (q *Queries) GetPricingPlan(ctx context.Context, id pgtype.UUID) (PricingPl
 	return i, err
 }
 
+const listAllPricingPlans = `-- name: ListAllPricingPlans :many
+SELECT id, product_id, segment, duration, duration_days, price_idr, label, is_active, created_at FROM pricing_plans
+ORDER BY segment, price_idr ASC
+`
+
+func (q *Queries) ListAllPricingPlans(ctx context.Context) ([]PricingPlan, error) {
+	rows, err := q.db.Query(ctx, listAllPricingPlans)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PricingPlan{}
+	for rows.Next() {
+		var i PricingPlan
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Segment,
+			&i.Duration,
+			&i.DurationDays,
+			&i.PriceIdr,
+			&i.Label,
+			&i.IsActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPricingPlansByProduct = `-- name: ListPricingPlansByProduct :many
 SELECT id, product_id, segment, duration, duration_days, price_idr, label, is_active, created_at FROM pricing_plans
 WHERE product_id = $1 AND is_active = TRUE
@@ -109,6 +144,17 @@ func (q *Queries) ListPricingPlansByProduct(ctx context.Context, productID pgtyp
 	return items, nil
 }
 
+const togglePricingPlanActive = `-- name: TogglePricingPlanActive :exec
+UPDATE pricing_plans
+SET is_active = NOT is_active
+WHERE id = $1
+`
+
+func (q *Queries) TogglePricingPlanActive(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, togglePricingPlanActive, id)
+	return err
+}
+
 const updatePricingPlan = `-- name: UpdatePricingPlan :exec
 UPDATE pricing_plans
 SET price_idr = $2, label = $3, is_active = $4
@@ -129,5 +175,21 @@ func (q *Queries) UpdatePricingPlan(ctx context.Context, arg UpdatePricingPlanPa
 		arg.Label,
 		arg.IsActive,
 	)
+	return err
+}
+
+const updatePricingPlanPrice = `-- name: UpdatePricingPlanPrice :exec
+UPDATE pricing_plans
+SET price_idr = $2
+WHERE id = $1
+`
+
+type UpdatePricingPlanPriceParams struct {
+	ID       pgtype.UUID `json:"id"`
+	PriceIdr int32       `json:"price_idr"`
+}
+
+func (q *Queries) UpdatePricingPlanPrice(ctx context.Context, arg UpdatePricingPlanPriceParams) error {
+	_, err := q.db.Exec(ctx, updatePricingPlanPrice, arg.ID, arg.PriceIdr)
 	return err
 }

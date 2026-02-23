@@ -94,8 +94,8 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 | Guest Code Mgmt | Generate, list, detail (login history), revoke | ✅ |
 | Subscription List | Filter by status (active/pending/expired) | ✅ |
 | Pricing View | Plans grouped by segment, IDR formatting | ✅ |
-| Revenue Analytics | Chart.js trends, segment breakdown | ⏳ |
-| Inline Price Edit | Edit harga langsung di dashboard | ⏳ |
+| Revenue Analytics | Chart.js trends, segment breakdown | ✅ |
+| Inline Price Edit | Edit harga langsung di dashboard | ✅ |
 | System Config | Edit config (quota, limits) dari dashboard | ⏳ |
 | Admin Auth | Cookie-based JWT admin authentication | ✅ |
 

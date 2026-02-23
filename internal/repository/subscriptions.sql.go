@@ -131,6 +131,126 @@ func (q *Queries) GetActiveSubscription(ctx context.Context, arg GetActiveSubscr
 	return i, err
 }
 
+const getMonthlyRevenue = `-- name: GetMonthlyRevenue :many
+SELECT
+  TO_CHAR(DATE_TRUNC('month', paid_at), 'YYYY-MM') AS month,
+  COALESCE(SUM(amount_paid_idr), 0)::bigint AS revenue
+FROM subscriptions
+WHERE status = 'active' AND paid_at IS NOT NULL
+  AND paid_at >= NOW() - INTERVAL '12 months'
+GROUP BY DATE_TRUNC('month', paid_at)
+ORDER BY DATE_TRUNC('month', paid_at) ASC
+`
+
+type GetMonthlyRevenueRow struct {
+	Month   string `json:"month"`
+	Revenue int64  `json:"revenue"`
+}
+
+func (q *Queries) GetMonthlyRevenue(ctx context.Context) ([]GetMonthlyRevenueRow, error) {
+	rows, err := q.db.Query(ctx, getMonthlyRevenue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetMonthlyRevenueRow{}
+	for rows.Next() {
+		var i GetMonthlyRevenueRow
+		if err := rows.Scan(&i.Month, &i.Revenue); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMonthlySubscriptionCount = `-- name: GetMonthlySubscriptionCount :many
+SELECT
+  TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE status = 'active') AS active,
+  COUNT(*) FILTER (WHERE status = 'expired') AS expired,
+  COUNT(*) FILTER (WHERE status = 'pending') AS pending
+FROM subscriptions
+WHERE created_at >= NOW() - INTERVAL '12 months'
+GROUP BY DATE_TRUNC('month', created_at)
+ORDER BY DATE_TRUNC('month', created_at) ASC
+`
+
+type GetMonthlySubscriptionCountRow struct {
+	Month   string `json:"month"`
+	Total   int64  `json:"total"`
+	Active  int64  `json:"active"`
+	Expired int64  `json:"expired"`
+	Pending int64  `json:"pending"`
+}
+
+func (q *Queries) GetMonthlySubscriptionCount(ctx context.Context) ([]GetMonthlySubscriptionCountRow, error) {
+	rows, err := q.db.Query(ctx, getMonthlySubscriptionCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetMonthlySubscriptionCountRow{}
+	for rows.Next() {
+		var i GetMonthlySubscriptionCountRow
+		if err := rows.Scan(
+			&i.Month,
+			&i.Total,
+			&i.Active,
+			&i.Expired,
+			&i.Pending,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRevenueBySegment = `-- name: GetRevenueBySegment :many
+SELECT
+  segment,
+  COALESCE(SUM(amount_paid_idr), 0)::bigint AS revenue,
+  COUNT(*)::bigint AS count
+FROM subscriptions
+WHERE status = 'active'
+GROUP BY segment
+ORDER BY revenue DESC
+`
+
+type GetRevenueBySegmentRow struct {
+	Segment string `json:"segment"`
+	Revenue int64  `json:"revenue"`
+	Count   int64  `json:"count"`
+}
+
+func (q *Queries) GetRevenueBySegment(ctx context.Context) ([]GetRevenueBySegmentRow, error) {
+	rows, err := q.db.Query(ctx, getRevenueBySegment)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetRevenueBySegmentRow{}
+	for rows.Next() {
+		var i GetRevenueBySegmentRow
+		if err := rows.Scan(&i.Segment, &i.Revenue, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSubscriptionByID = `-- name: GetSubscriptionByID :one
 SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at FROM subscriptions WHERE id = $1
 `

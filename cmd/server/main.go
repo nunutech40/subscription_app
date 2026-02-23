@@ -153,6 +153,9 @@ func main() {
 			protected.DELETE("/guest-codes/:id/revoke", adminDash.RevokeGuestCode)
 			protected.GET("/subscriptions", adminDash.Subscriptions)
 			protected.GET("/pricing", adminDash.Pricing)
+			protected.PUT("/pricing/:id", adminDash.UpdatePriceInline)
+			protected.POST("/pricing/:id/toggle", adminDash.TogglePlanActive)
+			protected.GET("/revenue", adminDash.Revenue)
 		}
 	}
 

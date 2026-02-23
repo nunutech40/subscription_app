@@ -57,3 +57,35 @@ SELECT COALESCE(SUM(amount_paid_idr), 0)::bigint FROM subscriptions WHERE status
 
 -- name: CountAllSubscriptions :one
 SELECT COUNT(*) FROM subscriptions;
+
+-- name: GetMonthlyRevenue :many
+SELECT
+  TO_CHAR(DATE_TRUNC('month', paid_at), 'YYYY-MM') AS month,
+  COALESCE(SUM(amount_paid_idr), 0)::bigint AS revenue
+FROM subscriptions
+WHERE status = 'active' AND paid_at IS NOT NULL
+  AND paid_at >= NOW() - INTERVAL '12 months'
+GROUP BY DATE_TRUNC('month', paid_at)
+ORDER BY DATE_TRUNC('month', paid_at) ASC;
+
+-- name: GetRevenueBySegment :many
+SELECT
+  segment,
+  COALESCE(SUM(amount_paid_idr), 0)::bigint AS revenue,
+  COUNT(*)::bigint AS count
+FROM subscriptions
+WHERE status = 'active'
+GROUP BY segment
+ORDER BY revenue DESC;
+
+-- name: GetMonthlySubscriptionCount :many
+SELECT
+  TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE status = 'active') AS active,
+  COUNT(*) FILTER (WHERE status = 'expired') AS expired,
+  COUNT(*) FILTER (WHERE status = 'pending') AS pending
+FROM subscriptions
+WHERE created_at >= NOW() - INTERVAL '12 months'
+GROUP BY DATE_TRUNC('month', created_at)
+ORDER BY DATE_TRUNC('month', created_at) ASC;

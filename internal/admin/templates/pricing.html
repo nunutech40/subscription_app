@@ -3,9 +3,7 @@
     <div class="card-header">
         <h3 class="card-title"><i class="ti ti-currency-dollar me-2"></i>Pricing Plans</h3>
         <div class="card-actions">
-            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#add-plan-modal">
-                <i class="ti ti-plus me-1"></i>Add Plan
-            </button>
+            <span class="text-muted me-2"><i class="ti ti-info-circle me-1"></i>Click on price to edit inline</span>
         </div>
     </div>
     <div class="table-responsive">
@@ -19,32 +17,71 @@
                     <th>Price (IDR)</th>
                     <th>Label</th>
                     <th>Active</th>
+                    <th class="w-1">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {{range .Plans}}
-                <tr>
+                <tr{{if not .IsActive}} class="text-muted" {{end}}>
                     <td>{{.ProductID}}</td>
-                    <td><span class="badge bg-blue-lt">{{.Segment}}</span></td>
+                    <td>
+                        <span class="badge {{if eq .Segment " global"}}bg-blue-lt{{else if eq .Segment "student"
+                            }}bg-green-lt{{else}}bg-orange-lt{{end}}">
+                            {{.Segment}}
+                        </span>
+                    </td>
                     <td>{{.Duration}}</td>
                     <td>{{.DurationDays}}</td>
                     <td>
-                        <span class="editable" contenteditable="true" hx-put="/admin/pricing/{{.ID}}" hx-trigger="blur"
-                            hx-target="this" hx-vals='js:{"price":parseInt(event.target.innerText.replace(/\D/g,""))}'>
-                            {{.PriceIDR}}
-                        </span>
+                        <div id="price-display-{{.ID}}" class="d-flex align-items-center gap-2">
+                            <span class="price-text" id="price-text-{{.ID}}">Rp {{.PriceIDR}}</span>
+                            <button class="btn btn-ghost-primary btn-sm btn-icon"
+                                onclick="startEdit('{{.ID}}', {{.PriceRaw}})" title="Edit price">
+                                <i class="ti ti-pencil"></i>
+                            </button>
+                        </div>
+                        <div id="price-edit-{{.ID}}" class="d-none">
+                            <form class="d-flex align-items-center gap-2" onsubmit="submitPrice(event, '{{.ID}}')">
+                                <div class="input-group input-group-sm" style="max-width: 180px;">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control" id="price-input-{{.ID}}" min="0"
+                                        step="1000" required>
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-success btn-icon">
+                                    <i class="ti ti-check"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-ghost-secondary btn-icon"
+                                    onclick="cancelEdit('{{.ID}}')">
+                                    <i class="ti ti-x"></i>
+                                </button>
+                            </form>
+                            <div id="price-status-{{.ID}}" class="mt-1"></div>
+                        </div>
                     </td>
                     <td>{{.Label}}</td>
                     <td>
-                        {{if .IsActive}}<span class="badge bg-green">Yes</span>
-                        {{else}}<span class="badge bg-red">No</span>{{end}}
+                        {{if .IsActive}}<span class="badge bg-green">Active</span>
+                        {{else}}<span class="badge bg-red">Inactive</span>{{end}}
                     </td>
-                </tr>
-                {{else}}
-                <tr>
-                    <td colspan="7" class="text-muted text-center">No plans</td>
-                </tr>
-                {{end}}
+                    <td>
+                        <form method="POST" action="/admin/pricing/{{.ID}}/toggle" style="display:inline;">
+                            {{if .IsActive}}
+                            <button type="submit" class="btn btn-sm btn-ghost-warning" title="Deactivate plan">
+                                <i class="ti ti-eye-off me-1"></i>Deactivate
+                            </button>
+                            {{else}}
+                            <button type="submit" class="btn btn-sm btn-ghost-success" title="Activate plan">
+                                <i class="ti ti-eye me-1"></i>Activate
+                            </button>
+                            {{end}}
+                        </form>
+                    </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="8" class="text-muted text-center">No plans</td>
+                    </tr>
+                    {{end}}
             </tbody>
         </table>
     </div>
@@ -61,9 +98,12 @@
             </div>
             <div class="list-group list-group-flush">
                 {{range .Plans}}
-                <div class="list-group-item d-flex justify-content-between">
+                <div class="list-group-item d-flex justify-content-between align-items-center">
                     <span>{{.Duration}}</span>
-                    <strong>Rp {{.PriceIDR}}</strong>
+                    <div>
+                        <strong>Rp {{.PriceIDR}}</strong>
+                        {{if not .IsActive}}<span class="badge bg-red-lt ms-1">Inactive</span>{{end}}
+                    </div>
                 </div>
                 {{end}}
             </div>
@@ -71,4 +111,62 @@
     </div>
     {{end}}
 </div>
+
+<script>
+    function startEdit(id, currentPrice) {
+        document.getElementById('price-display-' + id).classList.add('d-none');
+        document.getElementById('price-edit-' + id).classList.remove('d-none');
+        var input = document.getElementById('price-input-' + id);
+        input.value = currentPrice;
+        input.focus();
+        input.select();
+    }
+
+    function cancelEdit(id) {
+        document.getElementById('price-display-' + id).classList.remove('d-none');
+        document.getElementById('price-edit-' + id).classList.add('d-none');
+        document.getElementById('price-status-' + id).innerHTML = '';
+    }
+
+    function submitPrice(event, id) {
+        event.preventDefault();
+
+        var input = document.getElementById('price-input-' + id);
+        var price = parseInt(input.value);
+        var statusEl = document.getElementById('price-status-' + id);
+
+        if (isNaN(price) || price < 0) {
+            statusEl.innerHTML = '<span class="text-danger"><i class="ti ti-alert-circle me-1"></i>Invalid price</span>';
+            return;
+        }
+
+        statusEl.innerHTML = '<span class="text-muted"><i class="ti ti-loader ti-spin me-1"></i>Saving...</span>';
+
+        var formData = new FormData();
+        formData.append('price', price.toString());
+
+        fetch('/admin/pricing/' + id, {
+            method: 'PUT',
+            body: formData
+        })
+            .then(function (response) {
+                if (!response.ok) throw new Error('Failed');
+                return response.text();
+            })
+            .then(function (html) {
+                var priceText = document.getElementById('price-text-' + id);
+                priceText.innerHTML = html;
+                cancelEdit(id);
+                // Flash success
+                priceText.style.transition = 'color 0.3s';
+                priceText.style.color = '#2fb344';
+                setTimeout(function () {
+                    priceText.style.color = '';
+                }, 2000);
+            })
+            .catch(function (err) {
+                statusEl.innerHTML = '<span class="text-danger"><i class="ti ti-alert-circle me-1"></i>Failed to save</span>';
+            });
+    }
+</script>
 {{end}}
