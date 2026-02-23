@@ -1,0 +1,147 @@
+{{define "content"}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-settings me-2"></i>System Configuration</h3>
+        <div class="card-actions">
+            <span class="text-muted"><i class="ti ti-info-circle me-1"></i>Click on value to edit inline</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+            <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                    <th>Description</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Configs}}
+                <tr>
+                    <td><code>{{.Key}}</code></td>
+                    <td>
+                        <div id="cfg-display-{{.Key}}" class="d-flex align-items-center gap-2">
+                            <strong id="cfg-text-{{.Key}}">{{.Value}}</strong>
+                            <button class="btn btn-ghost-primary btn-sm btn-icon"
+                                onclick="startCfgEdit('{{.Key}}', '{{.Value}}')" title="Edit">
+                                <i class="ti ti-pencil"></i>
+                            </button>
+                        </div>
+                        <div id="cfg-edit-{{.Key}}" class="d-none">
+                            <form class="d-flex align-items-center gap-2" onsubmit="submitCfg(event, '{{.Key}}')">
+                                <input type="text" class="form-control form-control-sm" id="cfg-input-{{.Key}}"
+                                    style="max-width: 200px;" required>
+                                <button type="submit" class="btn btn-sm btn-success btn-icon">
+                                    <i class="ti ti-check"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-ghost-secondary btn-icon"
+                                    onclick="cancelCfgEdit('{{.Key}}')">
+                                    <i class="ti ti-x"></i>
+                                </button>
+                            </form>
+                            <div id="cfg-status-{{.Key}}" class="mt-1"></div>
+                        </div>
+                    </td>
+                    <td class="text-muted">{{.Description}}</td>
+                    <td class="text-muted">{{.UpdatedAt}}</td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="4" class="text-muted text-center">No configuration found</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Config Guide -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-book me-2"></i>Configuration Guide</h3>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <strong><code>max_subscribers</code></strong>
+                    <p class="text-muted mb-0">Maksimal subscriber aktif secara bersamaan. Jika tercapai, user baru
+                        tidak bisa subscribe.</p>
+                </div>
+                <div class="mb-3">
+                    <strong><code>max_active_guests</code></strong>
+                    <p class="text-muted mb-0">Maksimal guest session aktif. Limit ini untuk mengontrol beban server
+                        dari akun trial.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <strong><code>quota_warning_pct</code></strong>
+                    <p class="text-muted mb-0">Persentase kuota dimana admin akan menerima notifikasi warning. Default:
+                        80%.</p>
+                </div>
+                <div class="mb-3">
+                    <strong><code>guest_priority_mode</code></strong>
+                    <p class="text-muted mb-0">Jika <code>on</code>, guest akan diblokir total saat subscriber kuota
+                        &gt;90%. Set <code>off</code> untuk mode normal.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function startCfgEdit(key, currentValue) {
+        document.getElementById('cfg-display-' + key).classList.add('d-none');
+        document.getElementById('cfg-edit-' + key).classList.remove('d-none');
+        var input = document.getElementById('cfg-input-' + key);
+        input.value = currentValue;
+        input.focus();
+        input.select();
+    }
+
+    function cancelCfgEdit(key) {
+        document.getElementById('cfg-display-' + key).classList.remove('d-none');
+        document.getElementById('cfg-edit-' + key).classList.add('d-none');
+        document.getElementById('cfg-status-' + key).innerHTML = '';
+    }
+
+    function submitCfg(event, key) {
+        event.preventDefault();
+        var input = document.getElementById('cfg-input-' + key);
+        var value = input.value.trim();
+        var statusEl = document.getElementById('cfg-status-' + key);
+
+        if (!value) {
+            statusEl.innerHTML = '<span class="text-danger">Value cannot be empty</span>';
+            return;
+        }
+
+        statusEl.innerHTML = '<span class="text-muted"><i class="ti ti-loader ti-spin me-1"></i>Saving...</span>';
+
+        var formData = new FormData();
+        formData.append('value', value);
+
+        fetch('/admin/settings/' + key, {
+            method: 'PUT',
+            body: formData
+        })
+            .then(function (response) {
+                if (!response.ok) throw new Error('Failed');
+                return response.text();
+            })
+            .then(function (html) {
+                var textEl = document.getElementById('cfg-text-' + key);
+                textEl.innerHTML = html;
+                cancelCfgEdit(key);
+                textEl.style.transition = 'color 0.3s';
+                textEl.style.color = '#2fb344';
+                setTimeout(function () { textEl.style.color = ''; }, 2000);
+            })
+            .catch(function (err) {
+                statusEl.innerHTML = '<span class="text-danger"><i class="ti ti-alert-circle me-1"></i>Failed to save</span>';
+            });
+    }
+</script>
+{{end}}

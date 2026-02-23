@@ -59,6 +59,36 @@ func (q *Queries) GetProduct(ctx context.Context, id string) (Product, error) {
 	return i, err
 }
 
+const listAllProducts = `-- name: ListAllProducts :many
+SELECT id, name, description, is_active, created_at FROM products ORDER BY created_at DESC
+`
+
+func (q *Queries) ListAllProducts(ctx context.Context) ([]Product, error) {
+	rows, err := q.db.Query(ctx, listAllProducts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Product{}
+	for rows.Next() {
+		var i Product
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.IsActive,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProducts = `-- name: ListProducts :many
 SELECT id, name, description, is_active, created_at FROM products WHERE is_active = TRUE ORDER BY name
 `
@@ -87,4 +117,32 @@ func (q *Queries) ListProducts(ctx context.Context) ([]Product, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const toggleProductActive = `-- name: ToggleProductActive :exec
+UPDATE products
+SET is_active = NOT is_active
+WHERE id = $1
+`
+
+func (q *Queries) ToggleProductActive(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, toggleProductActive, id)
+	return err
+}
+
+const updateProduct = `-- name: UpdateProduct :exec
+UPDATE products
+SET name = $2, description = $3
+WHERE id = $1
+`
+
+type UpdateProductParams struct {
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
+func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) error {
+	_, err := q.db.Exec(ctx, updateProduct, arg.ID, arg.Name, arg.Description)
+	return err
 }

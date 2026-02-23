@@ -21,6 +21,17 @@ type AccessLog struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type AdminAuditLog struct {
+	ID         int64              `json:"id"`
+	AdminEmail string             `json:"admin_email"`
+	Action     string             `json:"action"`
+	Resource   string             `json:"resource"`
+	ResourceID pgtype.Text        `json:"resource_id"`
+	Detail     pgtype.Text        `json:"detail"`
+	Ip         *netip.Addr        `json:"ip"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type AnomalyLog struct {
 	ID         pgtype.UUID        `json:"id"`
 	UserID     pgtype.UUID        `json:"user_id"`

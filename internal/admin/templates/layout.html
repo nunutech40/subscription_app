@@ -99,6 +99,24 @@
                 <span class="nav-link-title">Anomalies</span>
               </a>
             </li>
+            <li class="nav-item{{if eq .Active " products"}} active{{end}}">
+              <a class="nav-link" href="/admin/products">
+                <span class="nav-link-icon"><i class="ti ti-box"></i></span>
+                <span class="nav-link-title">Products</span>
+              </a>
+            </li>
+            <li class="nav-item{{if eq .Active " settings"}} active{{end}}">
+              <a class="nav-link" href="/admin/settings">
+                <span class="nav-link-icon"><i class="ti ti-settings"></i></span>
+                <span class="nav-link-title">Settings</span>
+              </a>
+            </li>
+            <li class="nav-item{{if eq .Active " audit"}} active{{end}}">
+              <a class="nav-link" href="/admin/audit">
+                <span class="nav-link-icon"><i class="ti ti-history"></i></span>
+                <span class="nav-link-title">Audit Logs</span>
+              </a>
+            </li>
             <li class="nav-item mt-auto border-top pt-2">
               <a class="nav-link text-danger" href="/admin/logout">
                 <span class="nav-link-icon"><i class="ti ti-logout"></i></span>

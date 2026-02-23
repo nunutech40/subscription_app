@@ -1,0 +1,87 @@
+{{define "content"}}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-box me-2"></i>Products</h3>
+        <div class="card-actions">
+            <button class="btn btn-primary btn-sm"
+                onclick="document.getElementById('create-product-form').classList.toggle('d-none')">
+                <i class="ti ti-plus me-1"></i>Add Product
+            </button>
+        </div>
+    </div>
+
+    <!-- Create Product Form (hidden by default) -->
+    <div id="create-product-form" class="card-body border-bottom d-none">
+        <form method="POST" action="/admin/products" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">Product ID</label>
+                <input type="text" name="id" class="form-control form-control-sm" placeholder="e.g. biologi" required
+                    pattern="[a-z0-9_-]+" title="Lowercase letters, numbers, hyphens, underscores only">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Name</label>
+                <input type="text" name="name" class="form-control form-control-sm"
+                    placeholder="e.g. Biologi — Interactive 3D Cell" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Description</label>
+                <input type="text" name="description" class="form-control form-control-sm"
+                    placeholder="Short description">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-success btn-sm w-100">
+                    <i class="ti ti-check me-1"></i>Create
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-vcenter card-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th class="w-1">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Products}}
+                <tr{{if not .IsActive}} class="text-muted" {{end}}>
+                    <td><code>{{.ID}}</code></td>
+                    <td><strong>{{.Name}}</strong></td>
+                    <td class="text-muted">{{.Description}}</td>
+                    <td>
+                        {{if .IsActive}}<span class="badge bg-green">Active</span>
+                        {{else}}<span class="badge bg-red">Inactive</span>{{end}}
+                    </td>
+                    <td class="text-muted">{{.CreatedAt}}</td>
+                    <td>
+                        <div class="btn-list flex-nowrap">
+                            <form method="POST" action="/admin/products/{{.ID}}/toggle" style="display:inline;">
+                                {{if .IsActive}}
+                                <button type="submit" class="btn btn-sm btn-ghost-warning" title="Deactivate">
+                                    <i class="ti ti-eye-off"></i>
+                                </button>
+                                {{else}}
+                                <button type="submit" class="btn btn-sm btn-ghost-success" title="Activate">
+                                    <i class="ti ti-eye"></i>
+                                </button>
+                                {{end}}
+                            </form>
+                        </div>
+                    </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="6" class="text-muted text-center">No products found</td>
+                    </tr>
+                    {{end}}
+            </tbody>
+        </table>
+    </div>
+</div>
+{{end}}

@@ -68,6 +68,7 @@ func main() {
 	r.Use(gin.Recovery())
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.CORSMiddleware(cfg.CORSOrigins))
+	r.Use(middleware.RateLimitMiddleware(20, 40)) // 20 rps, burst 40 per IP
 	r.Use(gin.Logger())
 
 	// ── Health check ─────────────────────────────────────────────────
@@ -80,8 +81,9 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"message": "pong"})
 		})
 
-		// Auth (public)
+		// Auth (public — stricter rate limit)
 		auth := api.Group("/auth")
+		auth.Use(middleware.StrictRateLimitMiddleware(5, 10)) // 5 rps, burst 10
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
@@ -129,7 +131,8 @@ func main() {
 	}
 
 	// ── Admin Dashboard (HTMX) ──────────────────────────────────────
-	adminDash := adminpkg.NewAdminHandler(queries, authService, tokenService)
+	auditLogger := middleware.NewAuditLogger(queries)
+	adminDash := adminpkg.NewAdminHandler(queries, authService, tokenService, auditLogger)
 	adminUI := r.Group("/admin")
 	{
 		// Public routes (no auth required)
@@ -156,6 +159,13 @@ func main() {
 			protected.PUT("/pricing/:id", adminDash.UpdatePriceInline)
 			protected.POST("/pricing/:id/toggle", adminDash.TogglePlanActive)
 			protected.GET("/revenue", adminDash.Revenue)
+			protected.GET("/settings", adminDash.Settings)
+			protected.PUT("/settings/:key", adminDash.UpdateConfig)
+			protected.GET("/products", adminDash.Products)
+			protected.POST("/products", adminDash.CreateProduct)
+			protected.PUT("/products/:id", adminDash.UpdateProduct)
+			protected.POST("/products/:id/toggle", adminDash.ToggleProductActive)
+			protected.GET("/audit", adminDash.AuditLogs)
 		}
 	}
 

@@ -17,6 +17,7 @@ type Querier interface {
 	CountActiveSubscribers(ctx context.Context) (int64, error)
 	CountActiveSubscriptions(ctx context.Context) (int64, error)
 	CountAllSubscriptions(ctx context.Context) (int64, error)
+	CountAuditLogs(ctx context.Context) (int64, error)
 	CountGuestCodeLogins(ctx context.Context, guestCodeID pgtype.UUID) (int64, error)
 	CountSearchUsers(ctx context.Context, dollar_1 pgtype.Text) (int64, error)
 	CountSearchUsersByRole(ctx context.Context, arg CountSearchUsersByRoleParams) (int64, error)
@@ -48,9 +49,13 @@ type Querier interface {
 	GetUserAnomalyScore(ctx context.Context, userID pgtype.UUID) (int64, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
+	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error
 	ListAllPricingPlans(ctx context.Context) ([]PricingPlan, error)
+	ListAllProducts(ctx context.Context) ([]Product, error)
 	ListAllSubscriptions(ctx context.Context, arg ListAllSubscriptionsParams) ([]ListAllSubscriptionsRow, error)
 	ListAnomalyLogsByUser(ctx context.Context, arg ListAnomalyLogsByUserParams) ([]AnomalyLog, error)
+	ListAuditLogs(ctx context.Context, arg ListAuditLogsParams) ([]AdminAuditLog, error)
+	ListAuditLogsByAction(ctx context.Context, arg ListAuditLogsByActionParams) ([]AdminAuditLog, error)
 	ListConfigs(ctx context.Context) ([]SystemConfig, error)
 	ListExpiringSubscriptions(ctx context.Context) ([]ListExpiringSubscriptionsRow, error)
 	ListFlaggedUsers(ctx context.Context, arg ListFlaggedUsersParams) ([]ListFlaggedUsersRow, error)
@@ -70,9 +75,11 @@ type Querier interface {
 	SetUserActive(ctx context.Context, arg SetUserActiveParams) error
 	SetXenditInvoiceID(ctx context.Context, arg SetXenditInvoiceIDParams) error
 	TogglePricingPlanActive(ctx context.Context, id pgtype.UUID) error
+	ToggleProductActive(ctx context.Context, id string) error
 	UpdateConfig(ctx context.Context, arg UpdateConfigParams) error
 	UpdatePricingPlan(ctx context.Context, arg UpdatePricingPlanParams) error
 	UpdatePricingPlanPrice(ctx context.Context, arg UpdatePricingPlanPriceParams) error
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) error
 	UpdateSubscriptionStatus(ctx context.Context, arg UpdateSubscriptionStatusParams) error
 	UpdateUserAnomalyScore(ctx context.Context, arg UpdateUserAnomalyScoreParams) error
 	UpsertConfig(ctx context.Context, arg UpsertConfigParams) error
