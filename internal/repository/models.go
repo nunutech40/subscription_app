@@ -41,6 +41,20 @@ type AnomalyLog struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type Feedback struct {
+	ID        int64              `json:"id"`
+	UserEmail string             `json:"user_email"`
+	UserRole  string             `json:"user_role"`
+	Category  string             `json:"category"`
+	Rating    pgtype.Int2        `json:"rating"`
+	Message   string             `json:"message"`
+	PageUrl   pgtype.Text        `json:"page_url"`
+	UserAgent pgtype.Text        `json:"user_agent"`
+	Ip        *netip.Addr        `json:"ip"`
+	IsRead    pgtype.Bool        `json:"is_read"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type GuestCode struct {
 	ID                pgtype.UUID        `json:"id"`
 	Code              string             `json:"code"`

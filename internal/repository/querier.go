@@ -21,9 +21,11 @@ type Querier interface {
 	CountGuestCodeLogins(ctx context.Context, guestCodeID pgtype.UUID) (int64, error)
 	CountSearchUsers(ctx context.Context, dollar_1 pgtype.Text) (int64, error)
 	CountSearchUsersByRole(ctx context.Context, arg CountSearchUsersByRoleParams) (int64, error)
+	CountUnreadFeedback(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateAccessLog(ctx context.Context, arg CreateAccessLogParams) error
 	CreateAnomalyLog(ctx context.Context, arg CreateAnomalyLogParams) (AnomalyLog, error)
+	CreateFeedback(ctx context.Context, arg CreateFeedbackParams) (Feedback, error)
 	CreateGuestCode(ctx context.Context, arg CreateGuestCodeParams) (GuestCode, error)
 	CreatePricingPlan(ctx context.Context, arg CreatePricingPlanParams) (PricingPlan, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
@@ -34,6 +36,7 @@ type Querier interface {
 	GetActiveSessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error)
 	GetActiveSubscription(ctx context.Context, arg GetActiveSubscriptionParams) (Subscription, error)
 	GetConfig(ctx context.Context, key string) (SystemConfig, error)
+	GetFeedbackStats(ctx context.Context) (GetFeedbackStatsRow, error)
 	GetGuestCodeByCode(ctx context.Context, code string) (GuestCode, error)
 	GetGuestCodeByID(ctx context.Context, id pgtype.UUID) (GuestCode, error)
 	GetGuestLogin(ctx context.Context, arg GetGuestLoginParams) (GuestLogin, error)
@@ -58,6 +61,8 @@ type Querier interface {
 	ListAuditLogsByAction(ctx context.Context, arg ListAuditLogsByActionParams) ([]AdminAuditLog, error)
 	ListConfigs(ctx context.Context) ([]SystemConfig, error)
 	ListExpiringSubscriptions(ctx context.Context) ([]ListExpiringSubscriptionsRow, error)
+	ListFeedback(ctx context.Context, arg ListFeedbackParams) ([]Feedback, error)
+	ListFeedbackByCategory(ctx context.Context, arg ListFeedbackByCategoryParams) ([]Feedback, error)
 	ListFlaggedUsers(ctx context.Context, arg ListFlaggedUsersParams) ([]ListFlaggedUsersRow, error)
 	ListGuestCodes(ctx context.Context, arg ListGuestCodesParams) ([]GuestCode, error)
 	ListGuestLoginsByCode(ctx context.Context, guestCodeID pgtype.UUID) ([]GuestLogin, error)
@@ -66,8 +71,11 @@ type Querier interface {
 	ListRecentAnomalies(ctx context.Context, arg ListRecentAnomaliesParams) ([]ListRecentAnomaliesRow, error)
 	ListSessionsByUser(ctx context.Context, userID pgtype.UUID) ([]Session, error)
 	ListSubscriptionsByStatus(ctx context.Context, arg ListSubscriptionsByStatusParams) ([]ListSubscriptionsByStatusRow, error)
+	ListUnreadFeedback(ctx context.Context, arg ListUnreadFeedbackParams) ([]Feedback, error)
 	ListUserSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	MarkAllFeedbackRead(ctx context.Context) error
+	MarkFeedbackRead(ctx context.Context, id int64) error
 	RevokeAllUserSessions(ctx context.Context, userID pgtype.UUID) error
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) error
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error)

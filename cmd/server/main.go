@@ -59,6 +59,7 @@ func main() {
 	planHandler := handler.NewPlanHandler(queries)
 	guestHandler := handler.NewGuestHandler(queries)
 	subHandler := handler.NewSubscriptionHandler(queries, xenditService, emailService, cfg.XenditWebhookToken, cfg.FrontendURL)
+	feedbackHandler := handler.NewFeedbackHandler(queries)
 
 	// ── Router ────────────────────────────────────────────────────────
 	gin.SetMode(cfg.GinMode)
@@ -113,6 +114,9 @@ func main() {
 		protected.POST("/checkout", subHandler.Checkout)
 		protected.GET("/subscriptions/me", subHandler.MySubscriptions)
 		protected.GET("/access-check", subHandler.AccessCheck)
+
+		// Feedback / Suggestion box
+		protected.POST("/feedback", feedbackHandler.Submit)
 	}
 
 	// ── Admin routes ─────────────────────────────────────────────────
