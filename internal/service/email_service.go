@@ -3,25 +3,52 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/smtp"
+	"strings"
 	"time"
 )
 
-// EmailService handles sending emails via Resend API.
+// EmailService handles sending emails via Gmail SMTP or Resend API.
 type EmailService struct {
-	apiKey     string
+	// Resend
+	resendAPIKey string
+	// Gmail SMTP
+	smtpHost string
+	smtpPort string
+	smtpUser string
+	smtpPass string
+	// Common
 	fromEmail  string
+	provider   string // "smtp", "resend", or "dev"
 	httpClient *http.Client
 }
 
 // NewEmailService creates a new EmailService.
-func NewEmailService(apiKey, fromEmail string) *EmailService {
+// It auto-detects the provider based on available env vars:
+//   - SMTP_HOST set → use Gmail SMTP
+//   - RESEND_API_KEY set → use Resend API
+//   - Neither → dev mode (log to terminal)
+func NewEmailService(resendAPIKey, fromEmail, smtpHost, smtpPort, smtpUser, smtpPass string) *EmailService {
+	provider := "dev"
+	if smtpHost != "" && smtpUser != "" && smtpPass != "" {
+		provider = "smtp"
+	} else if resendAPIKey != "" {
+		provider = "resend"
+	}
+
 	return &EmailService{
-		apiKey:    apiKey,
-		fromEmail: fromEmail,
+		resendAPIKey: resendAPIKey,
+		smtpHost:     smtpHost,
+		smtpPort:     smtpPort,
+		smtpUser:     smtpUser,
+		smtpPass:     smtpPass,
+		fromEmail:    fromEmail,
+		provider:     provider,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -35,14 +62,94 @@ type SendEmailInput struct {
 	HTML    string
 }
 
-// SendEmail sends an email via Resend API.
+// SendEmail sends an email using the configured provider.
 func (s *EmailService) SendEmail(ctx context.Context, input SendEmailInput) error {
-	if s.apiKey == "" {
-		// Skip sending if no API key (dev mode)
-		fmt.Printf("📧 [DEV] Email skipped (no API key): to=%s subject=%s\n", input.To, input.Subject)
+	switch s.provider {
+	case "smtp":
+		return s.sendViaSMTP(input)
+	case "resend":
+		return s.sendViaResend(ctx, input)
+	default:
+		// Dev mode — log to terminal
+		fmt.Printf("📧 [DEV] Email to=%s subject=%s\n", input.To, input.Subject)
 		return nil
 	}
+}
 
+// sendViaSMTP sends email via Gmail SMTP (or any SMTP server).
+func (s *EmailService) sendViaSMTP(input SendEmailInput) error {
+	// Build MIME message
+	var msg strings.Builder
+	msg.WriteString("From: " + s.fromEmail + "\r\n")
+	msg.WriteString("To: " + input.To + "\r\n")
+	msg.WriteString("Subject: " + input.Subject + "\r\n")
+	msg.WriteString("MIME-Version: 1.0\r\n")
+	msg.WriteString("Content-Type: text/html; charset=\"utf-8\"\r\n")
+	msg.WriteString("\r\n")
+	msg.WriteString(input.HTML)
+
+	addr := s.smtpHost + ":" + s.smtpPort
+	auth := smtp.PlainAuth("", s.smtpUser, s.smtpPass, s.smtpHost)
+
+	// Use TLS for port 465, STARTTLS for 587
+	if s.smtpPort == "465" {
+		return s.sendSMTPWithTLS(addr, auth, input.To, msg.String())
+	}
+
+	// STARTTLS (port 587) — standard Go smtp.SendMail handles this
+	err := smtp.SendMail(addr, auth, s.fromEmail, []string{input.To}, []byte(msg.String()))
+	if err != nil {
+		return fmt.Errorf("smtp send failed: %w", err)
+	}
+
+	fmt.Printf("📧 [SMTP] Email sent to=%s subject=%s\n", input.To, input.Subject)
+	return nil
+}
+
+// sendSMTPWithTLS handles direct TLS connection (port 465).
+func (s *EmailService) sendSMTPWithTLS(addr string, auth smtp.Auth, to, msg string) error {
+	tlsConfig := &tls.Config{ServerName: s.smtpHost}
+	conn, err := tls.Dial("tcp", addr, tlsConfig)
+	if err != nil {
+		return fmt.Errorf("tls dial failed: %w", err)
+	}
+
+	client, err := smtp.NewClient(conn, s.smtpHost)
+	if err != nil {
+		return fmt.Errorf("smtp client failed: %w", err)
+	}
+	defer client.Close()
+
+	if err = client.Auth(auth); err != nil {
+		return fmt.Errorf("smtp auth failed: %w", err)
+	}
+	if err = client.Mail(s.fromEmail); err != nil {
+		return fmt.Errorf("smtp mail from failed: %w", err)
+	}
+	if err = client.Rcpt(to); err != nil {
+		return fmt.Errorf("smtp rcpt to failed: %w", err)
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp data failed: %w", err)
+	}
+	_, err = w.Write([]byte(msg))
+	if err != nil {
+		return fmt.Errorf("smtp write failed: %w", err)
+	}
+	err = w.Close()
+	if err != nil {
+		return fmt.Errorf("smtp close failed: %w", err)
+	}
+
+	client.Quit()
+	fmt.Printf("📧 [SMTP/TLS] Email sent to=%s\n", to)
+	return nil
+}
+
+// sendViaResend sends email via Resend API.
+func (s *EmailService) sendViaResend(ctx context.Context, input SendEmailInput) error {
 	body := map[string]interface{}{
 		"from":    s.fromEmail,
 		"to":      []string{input.To},
@@ -60,7 +167,7 @@ func (s *EmailService) SendEmail(ctx context.Context, input SendEmailInput) erro
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("Authorization", "Bearer "+s.resendAPIKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.httpClient.Do(req)
@@ -74,6 +181,7 @@ func (s *EmailService) SendEmail(ctx context.Context, input SendEmailInput) erro
 		return fmt.Errorf("resend API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
+	fmt.Printf("📧 [Resend] Email sent to=%s subject=%s\n", input.To, input.Subject)
 	return nil
 }
 

@@ -25,9 +25,13 @@ type Config struct {
 	XenditWebhookToken string
 	XenditBaseURL      string
 
-	// Resend
+	// Email
 	ResendAPIKey string
 	FromEmail    string
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUser     string
+	SMTPPass     string
 
 	// CORS
 	CORSOrigins string
@@ -57,6 +61,10 @@ func Load() (*Config, error) {
 
 		ResendAPIKey: getEnv("RESEND_API_KEY", ""),
 		FromEmail:    getEnv("FROM_EMAIL", "noreply@sains.id"),
+		SMTPHost:     getEnv("SMTP_HOST", ""),
+		SMTPPort:     getEnv("SMTP_PORT", "587"),
+		SMTPUser:     getEnv("SMTP_USER", ""),
+		SMTPPass:     getEnv("SMTP_PASS", ""),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:5173"),
 

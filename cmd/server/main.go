@@ -51,7 +51,7 @@ func main() {
 	tokenService := service.NewTokenService(cfg.JWTSecret, jwtExpiry)
 	authService := service.NewAuthService(queries)
 	xenditService := service.NewXenditService(cfg.XenditAPIKey, cfg.XenditBaseURL)
-	emailService := service.NewEmailService(cfg.ResendAPIKey, cfg.FromEmail)
+	emailService := service.NewEmailService(cfg.ResendAPIKey, cfg.FromEmail, cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass)
 	anomalyService := service.NewAnomalyService(queries)
 
 	// ── Handlers ─────────────────────────────────────────────────────
