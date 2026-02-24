@@ -1,8 +1,8 @@
 # PRD — Product Requirements Document
 **Project:** SAINS API & Admin Dashboard  
-**Version:** 1.0  
-**Date:** 2026-02-22  
-**Status:** Phase BE-1 ✅ · Phase BE-2 ✅ · Phase BE-3 ✅ · Phase BE-4 ✅ (partial) · Phase BE-5 ⏳
+**Version:** 1.1  
+**Date:** 2026-02-24  
+**Status:** Phase BE-1 ✅ · Phase BE-2 ✅ · Phase BE-3 ✅ · Phase BE-4 ✅ · Phase BE-5 ⏳ · Phase FE-INT ✅
 
 ---
 
@@ -46,7 +46,9 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 |-------------|--------|--------|
 | Register | Email + password → bcrypt hash → user created | ✅ |
 | Login | Email + password → JWT access + refresh cookie | ✅ |
-| Guest Login | Email + guest code → validasi → session 24 jam | ✅ |
+| Guest Login (Step 1) | Email + guest code → validasi → kirim OTP 6 digit ke email | ✅ |
+| Guest Verify (Step 2) | Email + code + OTP → validasi → session 24 jam | ✅ |
+| OTP Rate Limit | Max 3 OTP/10 menit per email, OTP berlaku 5 menit | ✅ |
 | Logout | Revoke session + clear cookie | ✅ |
 | Single Session | Login baru → revoke session lama + log anomaly | ✅ |
 | JWT | Access token (1h) + refresh token (30d, httpOnly cookie) | ✅ |
@@ -59,8 +61,9 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 | Checkout | Create Xendit invoice → redirect ke payment page | ✅ |
 | Webhook | Terima callback Xendit → activate subscription | ✅ |
 | Access Check | Cek apakah user punya langganan aktif per produk | ✅ |
+| Admin Access | Admin bypass subscription check — akses langsung ke Atomic | ✅ |
 | Quota Control | Max subscriber + max guest (configurable via DB) | ✅ |
-| Email | Welcome email + renewal reminder via Resend | ✅ |
+| Email | Welcome email + OTP email + renewal reminder via Resend | ✅ |
 
 ### 3.3 Guest Code System ✅
 
@@ -99,6 +102,16 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 | System Config | Edit config (quota, limits) dari dashboard | ⏳ |
 | Admin Auth | Cookie-based JWT admin authentication | ✅ |
 
+### 3.6 Feedback System ✅
+
+| Requirement | Detail | Status |
+|-------------|--------|--------|
+| Submit Feedback | User kirim saran/bug/pertanyaan dari Atomic | ✅ |
+| Emoji Rating | 1–5 rating (opsional) | ✅ |
+| Category | 💡 Saran · 🐛 Bug · ❓ Tanya | ✅ |
+| Auto Context | Email, role, page URL, user agent ter-isi otomatis | ✅ |
+| Admin View | List, filter, mark read, stats di dashboard | ✅ |
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -135,14 +148,20 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 Register → Login → Checkout → Bayar (Xendit) → Webhook activates subscription → Access content
 ```
 
-### 5.2 Guest Flow
+### 5.2 Guest Flow (dengan OTP)
 ```
-Admin generates code → Share code → Guest enters email + code → Validate → Session 24h → Expire
+Admin generates code → Share code → Guest enters email + code → OTP dikirim ke email
+→ Guest masukkan OTP → Validasi → Session 24h → Expire
 ```
 
-### 5.3 Admin Flow
+### 5.3 Admin Flow (Dashboard)
 ```
 Login (admin role) → Dashboard overview → Manage users/codes/subscriptions/pricing → Monitor anomalies
+```
+
+### 5.4 Admin Flow (Atomic)
+```
+Login via Atomic (subscriber mode) → AccessCheck bypasses subscription → Full access
 ```
 
 ---
@@ -176,9 +195,10 @@ Login (admin role) → Dashboard overview → Manage users/codes/subscriptions/p
 ```
 Phase BE-1: Foundation        ✅  Auth, JWT, sessions, migrations
 Phase BE-2: Subscription      ✅  Xendit, checkout, webhook, email
-Phase BE-3: Guest + Security  ✅  Guest codes, anomaly scoring
+Phase BE-3: Guest + Security  ✅  Guest codes, anomaly scoring, OTP verification
 Phase BE-4: Admin Dashboard   ✅  Tabler + HTMX, 7 pages, management UI
 Phase BE-5: Hardening         ⏳  Rate limit prod, audit logs, Docker, monitoring
+Phase FE-INT: Frontend        ✅  Auth Gate, Feedback Widget, Admin Access + Guest OTP
 ```
 
 ---

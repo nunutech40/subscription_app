@@ -1,7 +1,7 @@
 # TRD — Technical Requirements Document
 **Project:** SAINS API & Admin Dashboard  
-**Version:** 1.0  
-**Date:** 2026-02-22  
+**Version:** 1.1  
+**Date:** 2026-02-24  
 **Ref:** `PRD.md` v1.0 · `../../atomic/docs/BACKEND_PLAN.md` v1.1
 
 ---
@@ -92,10 +92,11 @@ api/
 │   ├── config/config.go            ← Environment loader + validation
 │   ├── database/postgres.go        ← pgx pool init + graceful close
 │   ├── handler/                    ← JSON API handlers
-│   │   ├── auth_handler.go         ← Register, login, logout, me, guest-login
+│   │   ├── auth_handler.go         ← Register, login, logout, me, guest-login, guest-verify
 │   │   ├── plan_handler.go         ← Pricing plans CRUD
 │   │   ├── subscription_handler.go ← Checkout, webhook, access-check
-│   │   └── guest_handler.go        ← Guest code CRUD (API endpoints)
+│   │   ├── guest_handler.go        ← Guest code CRUD (API endpoints)
+│   │   └── feedback_handler.go     ← User feedback submission
 │   ├── middleware/                  ← HTTP middleware
 │   │   ├── auth.go                 ← JWT verification
 │   │   ├── admin.go                ← Admin role gate
@@ -103,9 +104,11 @@ api/
 │   │   └── rate_limit.go           ← Token bucket rate limiter
 │   ├── model/                      ← Domain structs
 │   ├── repository/                 ← sqlc generated (DO NOT EDIT)
-│   └── service/                    ← Business logic
+│   └── service/                    ← Business logic layer
+│       ├── auth_service.go         ← Registration, login, password hashing
 │       ├── token_service.go        ← JWT create/verify/refresh
-│       └── email_service.go        ← Resend integration
+│       ├── anomaly_service.go      ← Anomaly scoring logic
+│       └── email_service.go        ← Resend integration (welcome, OTP, reminder)
 │
 ├── db/
 │   ├── migrations/
@@ -117,9 +120,11 @@ api/
 │       ├── subscriptions.sql
 │       ├── pricing_plans.sql
 │       ├── guest_codes.sql
+│       ├── guest_otps.sql          ← OTP creation, verification, rate limiting
 │       ├── anomaly_logs.sql
 │       ├── products.sql
-│       └── system_config.sql
+│       ├── system_config.sql
+│       └── feedback.sql            ← User feedback CRUD
 │
 ├── sqlc.yaml                       ← sqlc configuration
 ├── go.mod / go.sum
@@ -132,7 +137,7 @@ api/
 
 ## 4. Database Schema
 
-### 4.1 Tables Overview (10 tables)
+### 4.1 Tables Overview (12 tables)
 
 | Table | Purpose | Key Relations |
 |-------|---------|---------------|
@@ -143,8 +148,10 @@ api/
 | `subscriptions` | Langganan user per produk | → users, pricing_plans |
 | `guest_codes` | Kode akses trial | → products |
 | `guest_logins` | Log login per email per code | → guest_codes |
+| `guest_otps` | OTP 6 digit untuk verifikasi guest | → guest_codes |
 | `anomaly_logs` | Event mencurigakan per user | → users |
 | `access_logs` | Request access log | → users |
+| `feedback` | User feedback/saran/bug report | — |
 | `system_config` | Key-value config (quota, limits) | — |
 
 ### 4.2 Key Indexes
@@ -231,14 +238,25 @@ User logs in from Device B:
   4. Return JWT for Device B
 ```
 
-### 6.3 Guest Auth Flow
+### 6.3 Guest Auth Flow (2-Step OTP)
 
 ```
-Guest enters: email + code
-  1. Validate: code active & not expired?
-  2. Check: email login count < max_logins_per_email?
-  3. YES → create session (24h), increment login count
-  4. NO → reject ("Trial sudah habis")
+Step 1 — Request OTP:
+  Guest enters: email + guest code
+    1. Validate: code active & not expired?
+    2. Check: email login count < max_logins_per_email?
+    3. Rate limit: < 3 OTP requests in 10 minutes?
+    4. YES → Generate 6-digit OTP, store in guest_otps (5 min expiry)
+    5. Send OTP to email via Resend (dev mode: log to console)
+    6. Return: pending_verification + masked email
+
+Step 2 — Verify OTP:
+  Guest enters: email + code + OTP
+    1. Re-validate guest code (could have expired)
+    2. Check OTP: matches, not expired, not already verified?
+    3. YES → mark OTP verified, upsert guest_logins, create session
+    4. Return: access_token + session
+    5. NO → reject ("OTP tidak valid atau sudah expired")
 ```
 
 ---
@@ -365,8 +383,6 @@ See `api/.env.example` for full list. Critical vars:
 
 | Item | Priority | Detail |
 |------|----------|--------|
-| Chart.js revenue trends | Medium | Revenue line chart not yet implemented |
-| Inline price editing | Medium | Template ready, handler not wired |
 | System config UI | Low | Currently managed via DB directly |
 | Docker build | Low | Not yet containerized |
 | Load testing | Low | No benchmarks yet |
@@ -379,3 +395,4 @@ See `api/.env.example` for full list. Critical vars:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-02-22 | Initial TRD — covers Phase BE-1 through BE-4 |
+| 1.1 | 2026-02-24 | Added guest_otps + feedback tables, OTP auth flow, admin Atomic access, feedback handler |

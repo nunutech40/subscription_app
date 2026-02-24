@@ -1,6 +1,6 @@
 # SAINS API — Developer Guide
 
-**Last updated:** 2026-02-22  
+**Last updated:** 2026-02-24  
 **Stack:** Go 1.23+ · Gin · pgx · sqlc  
 **Docs:** [`docs/PRD.md`](docs/PRD.md) · [`docs/TRD.md`](docs/TRD.md)  
 **Ref:** `../atomic/docs/BACKEND_PLAN.md` · `../atomic/docs/EXECUTION_PLAN.md`
@@ -33,8 +33,8 @@ curl http://localhost:8080/health
 
 ```
 URL:      http://localhost:8080/admin/login
-Email:    admin@sains.id
-Password: SainsAdmin2024!
+Email:    (lihat SAINS/DEV_GUIDE.md)
+Password: (lihat SAINS/DEV_GUIDE.md)
 ```
 
 ---
@@ -175,7 +175,8 @@ make clean             # Remove build artifacts
 | GET | `/api/ping` | Simple ping/pong | None |
 | POST | `/api/auth/register` | Registrasi user baru | None |
 | POST | `/api/auth/login` | Login → JWT + refresh cookie | None |
-| POST | `/api/auth/guest-login` | Guest login (code + email) | None |
+| POST | `/api/auth/guest-login` | Guest login step 1 (code + email → OTP) | None |
+| POST | `/api/auth/guest-verify` | Guest login step 2 (verify OTP) | None |
 | POST | `/api/auth/logout` | Logout + revoke session | JWT |
 | GET | `/api/auth/me` | Get current user info | JWT |
 | GET | `/api/plans` | List pricing plans (?product&segment) | None |
@@ -183,7 +184,8 @@ make clean             # Remove build artifacts
 | GET | `/api/quota-status` | Current subscriber + guest counts | None |
 | POST | `/api/checkout` | Create Xendit invoice → checkout URL | JWT |
 | GET | `/api/subscriptions/me` | List user's subscriptions | JWT |
-| GET | `/api/access-check` | Check product access (?product) | JWT |
+| GET | `/api/access-check` | Check product access (?product) — admin bypass | JWT |
+| POST | `/api/feedback` | Submit user feedback (saran/bug/tanya) | JWT |
 | POST | `/api/xendit/webhook` | Xendit payment callback | Token |
 | POST | `/api/admin/pricing-plans` | Create pricing plan | Admin |
 | PUT | `/api/admin/pricing-plans/:id` | Update pricing plan | Admin |
