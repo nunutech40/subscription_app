@@ -1,0 +1,27 @@
+[Unit]
+Description=SAINS API Server
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/sains/api
+EnvironmentFile=/opt/sains/api/.env
+ExecStart=/opt/sains/api/sains-api
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sains-api
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/sains/api
+
+[Install]
+WantedBy=multi-user.target
