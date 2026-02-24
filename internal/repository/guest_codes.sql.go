@@ -70,6 +70,15 @@ func (q *Queries) DeactivateGuestCode(ctx context.Context, id pgtype.UUID) error
 	return err
 }
 
+const deleteGuestCode = `-- name: DeleteGuestCode :exec
+DELETE FROM guest_codes WHERE id = $1
+`
+
+func (q *Queries) DeleteGuestCode(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteGuestCode, id)
+	return err
+}
+
 const getGuestCodeByCode = `-- name: GetGuestCodeByCode :one
 SELECT id, code, product_id, label, max_logins_per_email, expires_at, is_active, generated_by, created_at FROM guest_codes WHERE code = $1 AND is_active = TRUE
 `

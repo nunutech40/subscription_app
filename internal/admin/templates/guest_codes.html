@@ -71,6 +71,12 @@
                                 hx-target="#code-{{.ID}}" hx-swap="outerHTML" hx-confirm="Revoke code {{.Code}}?">
                                 <i class="ti ti-ban"></i>
                             </button>
+                            {{else}}
+                            <button class="btn btn-sm btn-outline-danger" hx-delete="/admin/guest-codes/{{.ID}}"
+                                hx-target="#code-{{.ID}}" hx-swap="outerHTML"
+                                hx-confirm="Hapus kode {{.Code}} secara permanen?">
+                                <i class="ti ti-trash"></i>
+                            </button>
                             {{end}}
                         </td>
                     </tr>

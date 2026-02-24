@@ -586,7 +586,54 @@ func (h *AdminHandler) CreateGuestCode(c *gin.Context) {
 func (h *AdminHandler) RevokeGuestCode(c *gin.Context) {
 	gid := parseUUID(c.Param("id"))
 	_ = h.queries.DeactivateGuestCode(c.Request.Context(), gid)
-	c.Redirect(http.StatusSeeOther, "/admin/guest-codes")
+
+	// Re-fetch the code so we can return the updated row for HTMX swap
+	gc, err := h.queries.GetGuestCodeByID(c.Request.Context(), gid)
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/admin/guest-codes")
+		return
+	}
+	cnt, _ := h.queries.CountGuestCodeLogins(c.Request.Context(), gid)
+
+	row := guestCodeRow{
+		ID:                uuidStr(gc.ID),
+		Code:              gc.Code,
+		ProductID:         gc.ProductID.String,
+		Label:             gc.Label.String,
+		MaxLoginsPerEmail: gc.MaxLoginsPerEmail.Int32,
+		TotalLogins:       cnt,
+		IsActive:          gc.IsActive.Bool,
+		ExpiresAt:         gc.ExpiresAt.Time.Format("02 Jan 2006 15:04"),
+	}
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.String(http.StatusOK, `<tr id="code-`+row.ID+`">
+		<td><code class="fs-5">`+row.Code+`</code></td>
+		<td>`+row.Label+`</td>
+		<td>`+row.ProductID+`</td>
+		<td>`+fmt.Sprintf("%d", row.MaxLoginsPerEmail)+`</td>
+		<td>`+fmt.Sprintf("%d", row.TotalLogins)+`</td>
+		<td><span class="badge bg-red">Revoked</span></td>
+		<td>`+row.ExpiresAt+`</td>
+		<td>
+			<a href="/admin/guest-codes/`+row.ID+`" class="btn btn-sm btn-outline-primary me-1">
+				<i class="ti ti-eye"></i>
+			</a>
+			<button class="btn btn-sm btn-outline-danger"
+				hx-delete="/admin/guest-codes/`+row.ID+`"
+				hx-target="#code-`+row.ID+`" hx-swap="outerHTML"
+				hx-confirm="Hapus kode `+row.Code+` secara permanen?">
+				<i class="ti ti-trash"></i>
+			</button>
+		</td>
+	</tr>`)
+}
+
+func (h *AdminHandler) DeleteGuestCode(c *gin.Context) {
+	gid := parseUUID(c.Param("id"))
+	_ = h.queries.DeleteGuestCode(c.Request.Context(), gid)
+	// Return empty string — HTMX will remove the row
+	c.String(http.StatusOK, "")
 }
 
 // ── Subscriptions ────────────────────────────────────────────────

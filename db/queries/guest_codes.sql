@@ -15,6 +15,9 @@ SELECT * FROM guest_codes ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 -- name: DeactivateGuestCode :exec
 UPDATE guest_codes SET is_active = FALSE WHERE id = $1;
 
+-- name: DeleteGuestCode :exec
+DELETE FROM guest_codes WHERE id = $1;
+
 -- name: GetGuestLogin :one
 SELECT * FROM guest_logins WHERE guest_code_id = $1 AND email = $2;
 
