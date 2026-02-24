@@ -61,14 +61,16 @@ type loginRequest struct {
 }
 
 type guestLoginRequest struct {
-	Code  string `json:"code" binding:"required"`
-	Email string `json:"email" binding:"required,email"`
+	Code           string `json:"code" binding:"required"`
+	Email          string `json:"email" binding:"required,email"`
+	ReferralSource string `json:"referral_source"`
 }
 
 type guestVerifyRequest struct {
-	Code  string `json:"code" binding:"required"`
-	Email string `json:"email" binding:"required,email"`
-	OTP   string `json:"otp" binding:"required,len=6"`
+	Code           string `json:"code" binding:"required"`
+	Email          string `json:"email" binding:"required,email"`
+	OTP            string `json:"otp" binding:"required,len=6"`
+	ReferralSource string `json:"referral_source"`
 }
 
 type authData struct {
@@ -377,8 +379,9 @@ func (h *AuthHandler) GuestVerify(c *gin.Context) {
 
 	// 4. Upsert guest login (increment count) — only after verified
 	_, _ = h.queries.UpsertGuestLogin(ctx, repository.UpsertGuestLoginParams{
-		GuestCodeID: guestCode.ID,
-		Email:       req.Email,
+		GuestCodeID:    guestCode.ID,
+		Email:          req.Email,
+		ReferralSource: pgtype.Text{String: req.ReferralSource, Valid: req.ReferralSource != ""},
 	})
 
 	// 5. Generate access token (guest role)

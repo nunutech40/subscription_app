@@ -28,6 +28,7 @@
                     <thead>
                         <tr>
                             <th>Email</th>
+                            <th>Sumber</th>
                             <th>Login Count</th>
                             <th>Last Login</th>
                         </tr>
@@ -36,12 +37,13 @@
                         {{range .Logins}}
                         <tr>
                             <td>{{.Email}}</td>
+                            <td>{{if .ReferralSource}}<span class="badge bg-cyan">{{.ReferralSource}}</span>{{else}}<span class="text-muted">—</span>{{end}}</td>
                             <td><span class="badge bg-blue">{{.LoginCount}}</span></td>
                             <td>{{.LastLoginAt}}</td>
                         </tr>
                         {{else}}
                         <tr>
-                            <td colspan="3" class="text-muted text-center">No logins yet</td>
+                            <td colspan="4" class="text-muted text-center">No logins yet</td>
                         </tr>
                         {{end}}
                     </tbody>

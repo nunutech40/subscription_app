@@ -113,7 +113,7 @@ func (q *Queries) GetGuestCodeByID(ctx context.Context, id pgtype.UUID) (GuestCo
 }
 
 const getGuestLogin = `-- name: GetGuestLogin :one
-SELECT id, guest_code_id, email, login_count, last_login_at, created_at FROM guest_logins WHERE guest_code_id = $1 AND email = $2
+SELECT id, guest_code_id, email, login_count, last_login_at, created_at, referral_source FROM guest_logins WHERE guest_code_id = $1 AND email = $2
 `
 
 type GetGuestLoginParams struct {
@@ -131,6 +131,7 @@ func (q *Queries) GetGuestLogin(ctx context.Context, arg GetGuestLoginParams) (G
 		&i.LoginCount,
 		&i.LastLoginAt,
 		&i.CreatedAt,
+		&i.ReferralSource,
 	)
 	return i, err
 }
@@ -175,7 +176,7 @@ func (q *Queries) ListGuestCodes(ctx context.Context, arg ListGuestCodesParams) 
 }
 
 const listGuestLoginsByCode = `-- name: ListGuestLoginsByCode :many
-SELECT id, guest_code_id, email, login_count, last_login_at, created_at FROM guest_logins WHERE guest_code_id = $1 ORDER BY last_login_at DESC
+SELECT id, guest_code_id, email, login_count, last_login_at, created_at, referral_source FROM guest_logins WHERE guest_code_id = $1 ORDER BY last_login_at DESC
 `
 
 func (q *Queries) ListGuestLoginsByCode(ctx context.Context, guestCodeID pgtype.UUID) ([]GuestLogin, error) {
@@ -194,6 +195,7 @@ func (q *Queries) ListGuestLoginsByCode(ctx context.Context, guestCodeID pgtype.
 			&i.LoginCount,
 			&i.LastLoginAt,
 			&i.CreatedAt,
+			&i.ReferralSource,
 		); err != nil {
 			return nil, err
 		}
@@ -206,20 +208,22 @@ func (q *Queries) ListGuestLoginsByCode(ctx context.Context, guestCodeID pgtype.
 }
 
 const upsertGuestLogin = `-- name: UpsertGuestLogin :one
-INSERT INTO guest_logins (guest_code_id, email, login_count, last_login_at)
-VALUES ($1, $2, 1, now())
+INSERT INTO guest_logins (guest_code_id, email, login_count, last_login_at, referral_source)
+VALUES ($1, $2, 1, now(), $3)
 ON CONFLICT (guest_code_id, email)
-DO UPDATE SET login_count = guest_logins.login_count + 1, last_login_at = now()
-RETURNING id, guest_code_id, email, login_count, last_login_at, created_at
+DO UPDATE SET login_count = guest_logins.login_count + 1, last_login_at = now(),
+  referral_source = CASE WHEN $3 != '' THEN $3 ELSE guest_logins.referral_source END
+RETURNING id, guest_code_id, email, login_count, last_login_at, created_at, referral_source
 `
 
 type UpsertGuestLoginParams struct {
-	GuestCodeID pgtype.UUID `json:"guest_code_id"`
-	Email       string      `json:"email"`
+	GuestCodeID    pgtype.UUID `json:"guest_code_id"`
+	Email          string      `json:"email"`
+	ReferralSource pgtype.Text `json:"referral_source"`
 }
 
 func (q *Queries) UpsertGuestLogin(ctx context.Context, arg UpsertGuestLoginParams) (GuestLogin, error) {
-	row := q.db.QueryRow(ctx, upsertGuestLogin, arg.GuestCodeID, arg.Email)
+	row := q.db.QueryRow(ctx, upsertGuestLogin, arg.GuestCodeID, arg.Email, arg.ReferralSource)
 	var i GuestLogin
 	err := row.Scan(
 		&i.ID,
@@ -228,6 +232,7 @@ func (q *Queries) UpsertGuestLogin(ctx context.Context, arg UpsertGuestLoginPara
 		&i.LoginCount,
 		&i.LastLoginAt,
 		&i.CreatedAt,
+		&i.ReferralSource,
 	)
 	return i, err
 }

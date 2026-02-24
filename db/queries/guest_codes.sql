@@ -19,10 +19,11 @@ UPDATE guest_codes SET is_active = FALSE WHERE id = $1;
 SELECT * FROM guest_logins WHERE guest_code_id = $1 AND email = $2;
 
 -- name: UpsertGuestLogin :one
-INSERT INTO guest_logins (guest_code_id, email, login_count, last_login_at)
-VALUES ($1, $2, 1, now())
+INSERT INTO guest_logins (guest_code_id, email, login_count, last_login_at, referral_source)
+VALUES ($1, $2, 1, now(), $3)
 ON CONFLICT (guest_code_id, email)
-DO UPDATE SET login_count = guest_logins.login_count + 1, last_login_at = now()
+DO UPDATE SET login_count = guest_logins.login_count + 1, last_login_at = now(),
+  referral_source = CASE WHEN $3 != '' THEN $3 ELSE guest_logins.referral_source END
 RETURNING *;
 
 -- name: ListGuestLoginsByCode :many

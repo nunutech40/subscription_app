@@ -37,9 +37,10 @@ type guestCodeDTO struct {
 }
 
 type guestLoginDTO struct {
-	Email       string `json:"email"`
-	LoginCount  int    `json:"login_count"`
-	LastLoginAt string `json:"last_login_at"`
+	Email          string `json:"email"`
+	LoginCount     int    `json:"login_count"`
+	LastLoginAt    string `json:"last_login_at"`
+	ReferralSource string `json:"referral_source"`
 }
 
 func toGuestCodeDTO(g repository.GuestCode) guestCodeDTO {
@@ -57,9 +58,10 @@ func toGuestCodeDTO(g repository.GuestCode) guestCodeDTO {
 
 func toGuestLoginDTO(g repository.GuestLogin) guestLoginDTO {
 	return guestLoginDTO{
-		Email:       g.Email,
-		LoginCount:  int(g.LoginCount.Int32),
-		LastLoginAt: g.LastLoginAt.Time.Format("2006-01-02T15:04:05Z"),
+		Email:          g.Email,
+		LoginCount:     int(g.LoginCount.Int32),
+		LastLoginAt:    g.LastLoginAt.Time.Format("2006-01-02T15:04:05Z"),
+		ReferralSource: g.ReferralSource.String,
 	}
 }
 

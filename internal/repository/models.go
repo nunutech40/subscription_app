@@ -68,12 +68,13 @@ type GuestCode struct {
 }
 
 type GuestLogin struct {
-	ID          pgtype.UUID        `json:"id"`
-	GuestCodeID pgtype.UUID        `json:"guest_code_id"`
-	Email       string             `json:"email"`
-	LoginCount  pgtype.Int4        `json:"login_count"`
-	LastLoginAt pgtype.Timestamptz `json:"last_login_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID             pgtype.UUID        `json:"id"`
+	GuestCodeID    pgtype.UUID        `json:"guest_code_id"`
+	Email          string             `json:"email"`
+	LoginCount     pgtype.Int4        `json:"login_count"`
+	LastLoginAt    pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ReferralSource pgtype.Text        `json:"referral_source"`
 }
 
 type GuestOtp struct {

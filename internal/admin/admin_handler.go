@@ -108,9 +108,10 @@ type guestCodeRow struct {
 }
 
 type guestLoginRow struct {
-	Email       string
-	LoginCount  int32
-	LastLoginAt string
+	Email          string
+	LoginCount     int32
+	LastLoginAt    string
+	ReferralSource string
 }
 
 type planRow struct {
@@ -543,9 +544,10 @@ func (h *AdminHandler) GuestCodeDetail(c *gin.Context) {
 	var loginRows []guestLoginRow
 	for _, l := range logins {
 		loginRows = append(loginRows, guestLoginRow{
-			Email:       l.Email,
-			LoginCount:  l.LoginCount.Int32,
-			LastLoginAt: l.LastLoginAt.Time.Format("02 Jan 2006 15:04"),
+			Email:          l.Email,
+			LoginCount:     l.LoginCount.Int32,
+			LastLoginAt:    l.LastLoginAt.Time.Format("02 Jan 2006 15:04"),
+			ReferralSource: l.ReferralSource.String,
 		})
 	}
 
