@@ -2,14 +2,17 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"net/netip"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nununugraha/sains-api/internal/repository"
 	"github.com/nununugraha/sains-api/internal/service"
@@ -20,6 +23,7 @@ type AuthHandler struct {
 	authService    *service.AuthService
 	tokenService   *service.TokenService
 	anomalyService *service.AnomalyService
+	emailService   *service.EmailService
 	queries        *repository.Queries
 	refreshDays    int
 }
@@ -29,6 +33,7 @@ func NewAuthHandler(
 	authService *service.AuthService,
 	tokenService *service.TokenService,
 	anomalyService *service.AnomalyService,
+	emailService *service.EmailService,
 	queries *repository.Queries,
 	refreshDays int,
 ) *AuthHandler {
@@ -36,6 +41,7 @@ func NewAuthHandler(
 		authService:    authService,
 		tokenService:   tokenService,
 		anomalyService: anomalyService,
+		emailService:   emailService,
 		queries:        queries,
 		refreshDays:    refreshDays,
 	}
@@ -57,6 +63,12 @@ type loginRequest struct {
 type guestLoginRequest struct {
 	Code  string `json:"code" binding:"required"`
 	Email string `json:"email" binding:"required,email"`
+}
+
+type guestVerifyRequest struct {
+	Code  string `json:"code" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+	OTP   string `json:"otp" binding:"required,len=6"`
 }
 
 type authData struct {
@@ -235,6 +247,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 }
 
 // GuestLogin handles POST /api/auth/guest-login
+// Step 1: Validate code + email → send OTP to email → return pending
 func (h *AuthHandler) GuestLogin(c *gin.Context) {
 	var req guestLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -282,13 +295,93 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 		return
 	}
 
-	// 4. Upsert guest login (increment count)
+	// 4. Rate limit OTP requests (max 3 per 10 min per email)
+	recentCount, _ := h.queries.CountRecentOTPs(ctx, req.Email)
+	if recentCount >= 3 {
+		RespondError(c, http.StatusTooManyRequests, "RATE_LIMITED",
+			"Terlalu banyak permintaan OTP. Coba lagi dalam beberapa menit.")
+		return
+	}
+
+	// 5. Generate 6-digit OTP
+	otpCode := generateOTP()
+
+	// 6. Store OTP in DB (expires in 5 minutes)
+	_, err = h.queries.CreateGuestOTP(ctx, repository.CreateGuestOTPParams{
+		Email:       req.Email,
+		GuestCodeID: guestCode.ID,
+		OtpCode:     otpCode,
+		ExpiresAt:   pgtype.Timestamptz{Time: time.Now().Add(5 * time.Minute), Valid: true},
+		Ip:          parseIP(c.ClientIP()),
+	})
+	if err != nil {
+		log.Printf("create OTP error: %v", err)
+		RespondInternalError(c)
+		return
+	}
+
+	// 7. Send OTP email
+	go func() {
+		emailErr := h.emailService.SendGuestOTPEmail(context.Background(), req.Email, otpCode)
+		if emailErr != nil {
+			log.Printf("send OTP email error: %v", emailErr)
+		}
+	}()
+
+	// 8. Cleanup expired OTPs in background
+	go func() { _ = h.queries.CleanExpiredOTPs(context.Background()) }()
+
+	RespondSuccess(c, http.StatusOK, gin.H{
+		"pending_verification": true,
+		"email":                maskEmail(req.Email),
+		"expires_in":           300, // 5 minutes
+	}, "Kode OTP sudah dikirim ke email kamu")
+}
+
+// GuestVerify handles POST /api/auth/guest-verify
+// Step 2: Validate OTP → create session → return access token
+func (h *AuthHandler) GuestVerify(c *gin.Context) {
+	var req guestVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		RespondBadRequest(c, "Data tidak valid: "+err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// 1. Re-validate guest code (it could have expired between steps)
+	guestCode, err := h.queries.GetGuestCodeByCode(ctx, req.Code)
+	if err != nil {
+		RespondError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "Kode guest tidak valid")
+		return
+	}
+
+	// 2. Validate OTP
+	otpRecord, err := h.queries.GetPendingOTP(ctx, repository.GetPendingOTPParams{
+		Email:       req.Email,
+		GuestCodeID: guestCode.ID,
+		OtpCode:     req.OTP,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			RespondError(c, http.StatusUnauthorized, "OTP_INVALID",
+				"Kode OTP salah atau sudah expired. Coba minta ulang.")
+			return
+		}
+		RespondInternalError(c)
+		return
+	}
+
+	// 3. Mark OTP as verified
+	_ = h.queries.MarkOTPVerified(ctx, otpRecord.ID)
+
+	// 4. Upsert guest login (increment count) — only after verified
 	_, _ = h.queries.UpsertGuestLogin(ctx, repository.UpsertGuestLoginParams{
 		GuestCodeID: guestCode.ID,
 		Email:       req.Email,
 	})
 
-	// 5. Generate access token (guest role, limited)
+	// 5. Generate access token (guest role)
 	accessToken, err := h.tokenService.GenerateAccessToken(
 		"guest:"+uuidToString(guestCode.ID),
 		req.Email,
@@ -324,6 +417,42 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 		"role":         "guest",
 		"product":      guestCode.ProductID.String,
 	}, "Login sebagai guest berhasil")
+}
+
+// ── OTP Helpers ─────────────────────────────────────────────────────
+
+func generateOTP() string {
+	const digits = "0123456789"
+	otp := make([]byte, 6)
+	for i := range otp {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(digits))))
+		if err != nil {
+			// Fallback to simple approach
+			otp[i] = digits[i]
+			continue
+		}
+		otp[i] = digits[n.Int64()]
+	}
+	return string(otp)
+}
+
+func maskEmail(email string) string {
+	at := -1
+	for i, c := range email {
+		if c == '@' {
+			at = i
+			break
+		}
+	}
+	if at <= 0 {
+		return email
+	}
+	local := email[:at]
+	domain := email[at:]
+	if len(local) <= 2 {
+		return local[:1] + "***" + domain
+	}
+	return local[:2] + "***" + domain
 }
 
 // ── UUID Helpers ────────────────────────────────────────────────────

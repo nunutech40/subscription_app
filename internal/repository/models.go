@@ -76,6 +76,17 @@ type GuestLogin struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type GuestOtp struct {
+	ID          pgtype.UUID        `json:"id"`
+	Email       string             `json:"email"`
+	GuestCodeID pgtype.UUID        `json:"guest_code_id"`
+	OtpCode     string             `json:"otp_code"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	Verified    bool               `json:"verified"`
+	Ip          *netip.Addr        `json:"ip"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type PricingPlan struct {
 	ID           pgtype.UUID        `json:"id"`
 	ProductID    pgtype.Text        `json:"product_id"`

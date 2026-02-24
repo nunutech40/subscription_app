@@ -55,7 +55,7 @@ func main() {
 	anomalyService := service.NewAnomalyService(queries)
 
 	// ── Handlers ─────────────────────────────────────────────────────
-	authHandler := handler.NewAuthHandler(authService, tokenService, anomalyService, queries, cfg.RefreshTokenExpiryDays)
+	authHandler := handler.NewAuthHandler(authService, tokenService, anomalyService, emailService, queries, cfg.RefreshTokenExpiryDays)
 	planHandler := handler.NewPlanHandler(queries)
 	guestHandler := handler.NewGuestHandler(queries)
 	subHandler := handler.NewSubscriptionHandler(queries, xenditService, emailService, cfg.XenditWebhookToken, cfg.FrontendURL)
@@ -89,6 +89,7 @@ func main() {
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/guest-login", authHandler.GuestLogin)
+			auth.POST("/guest-verify", authHandler.GuestVerify)
 		}
 
 		// Plans (public)

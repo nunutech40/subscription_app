@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	ActivateSubscriptionByInvoice(ctx context.Context, arg ActivateSubscriptionByInvoiceParams) error
+	CleanExpiredOTPs(ctx context.Context) error
 	CleanExpiredSessions(ctx context.Context) error
 	CountActiveGuestSessions(ctx context.Context) (int64, error)
 	CountActiveSubscribers(ctx context.Context) (int64, error)
@@ -19,6 +20,7 @@ type Querier interface {
 	CountAllSubscriptions(ctx context.Context) (int64, error)
 	CountAuditLogs(ctx context.Context) (int64, error)
 	CountGuestCodeLogins(ctx context.Context, guestCodeID pgtype.UUID) (int64, error)
+	CountRecentOTPs(ctx context.Context, email string) (int64, error)
 	CountSearchUsers(ctx context.Context, dollar_1 pgtype.Text) (int64, error)
 	CountSearchUsersByRole(ctx context.Context, arg CountSearchUsersByRoleParams) (int64, error)
 	CountUnreadFeedback(ctx context.Context) (int64, error)
@@ -27,6 +29,7 @@ type Querier interface {
 	CreateAnomalyLog(ctx context.Context, arg CreateAnomalyLogParams) (AnomalyLog, error)
 	CreateFeedback(ctx context.Context, arg CreateFeedbackParams) (Feedback, error)
 	CreateGuestCode(ctx context.Context, arg CreateGuestCodeParams) (GuestCode, error)
+	CreateGuestOTP(ctx context.Context, arg CreateGuestOTPParams) (GuestOtp, error)
 	CreatePricingPlan(ctx context.Context, arg CreatePricingPlanParams) (PricingPlan, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
@@ -42,6 +45,7 @@ type Querier interface {
 	GetGuestLogin(ctx context.Context, arg GetGuestLoginParams) (GuestLogin, error)
 	GetMonthlyRevenue(ctx context.Context) ([]GetMonthlyRevenueRow, error)
 	GetMonthlySubscriptionCount(ctx context.Context) ([]GetMonthlySubscriptionCountRow, error)
+	GetPendingOTP(ctx context.Context, arg GetPendingOTPParams) (GuestOtp, error)
 	GetPricingPlan(ctx context.Context, id pgtype.UUID) (PricingPlan, error)
 	GetProduct(ctx context.Context, id string) (Product, error)
 	GetRevenueBySegment(ctx context.Context) ([]GetRevenueBySegmentRow, error)
@@ -76,6 +80,7 @@ type Querier interface {
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	MarkAllFeedbackRead(ctx context.Context) error
 	MarkFeedbackRead(ctx context.Context, id int64) error
+	MarkOTPVerified(ctx context.Context, id pgtype.UUID) error
 	RevokeAllUserSessions(ctx context.Context, userID pgtype.UUID) error
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) error
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error)

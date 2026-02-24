@@ -257,6 +257,18 @@ func (h *SubscriptionHandler) AccessCheck(c *gin.Context) {
 	userIDStr, _ := c.Get("user_id")
 	userID := stringToUUID(userIDStr.(string))
 
+	// Admin always has full access (no subscription needed)
+	role, roleExists := c.Get("role")
+	if roleExists && role.(string) == "admin" {
+		RespondSuccess(c, http.StatusOK, gin.H{
+			"granted":    true,
+			"product":    productID,
+			"expires_at": "2099-12-31T23:59:59Z",
+			"segment":    "admin",
+		})
+		return
+	}
+
 	// Check active subscription
 	sub, err := h.queries.GetActiveSubscription(c.Request.Context(),
 		repository.GetActiveSubscriptionParams{
