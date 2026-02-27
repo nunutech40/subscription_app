@@ -1,8 +1,8 @@
 # SAINS API — Developer Guide
 
-**Last updated:** 2026-02-24  
+**Last updated:** 2026-02-27  
 **Stack:** Go 1.23+ · Gin · pgx · sqlc  
-**Docs:** [`docs/PRD.md`](docs/PRD.md) · [`docs/TRD.md`](docs/TRD.md)  
+**Docs:** [`docs/PRD.md`](docs/PRD.md) · [`docs/TRD.md`](docs/TRD.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)  
 **Ref:** `../atomic/docs/BACKEND_PLAN.md` · `../atomic/docs/EXECUTION_PLAN.md`
 
 ---
