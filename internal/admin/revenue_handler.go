@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -91,6 +92,46 @@ func (h *AdminHandler) Revenue(c *gin.Context) {
 		})
 	}
 
+	// UTM Source attribution
+	utmRegistrations, _ := h.queries.GetRegistrationsByUTMSource(ctx)
+	type utmRegRow struct {
+		Source        string
+		Registrations int64
+		ActiveUsers   int64
+		ConvRate      string
+	}
+	var utmRegRows []utmRegRow
+	for _, r := range utmRegistrations {
+		convRate := "—"
+		if r.TotalRegistrations > 0 {
+			pct := float64(r.ActiveUsers) * 100.0 / float64(r.TotalRegistrations)
+			convRate = fmt.Sprintf("%.0f%%", pct)
+		}
+		utmRegRows = append(utmRegRows, utmRegRow{
+			Source:        r.Source,
+			Registrations: r.TotalRegistrations,
+			ActiveUsers:   r.ActiveUsers,
+			ConvRate:      convRate,
+		})
+	}
+
+	utmRevenue, _ := h.queries.GetRevenueByUTMSource(ctx)
+	type utmRevRow struct {
+		Source      string
+		Revenue     string
+		TotalOrders int64
+		PaidOrders  int64
+	}
+	var utmRevRows []utmRevRow
+	for _, r := range utmRevenue {
+		utmRevRows = append(utmRevRows, utmRevRow{
+			Source:      r.Source,
+			Revenue:     formatIDR(r.Revenue),
+			TotalOrders: r.TotalOrders,
+			PaidOrders:  r.PaidOrders,
+		})
+	}
+
 	h.render(c, "revenue", gin.H{
 		"Title":            "Revenue Analytics",
 		"active":           "revenue",
@@ -101,5 +142,7 @@ func (h *AdminHandler) Revenue(c *gin.Context) {
 		"SegmentChartJSON": string(segChartJSON),
 		"SubChartJSON":     string(subChartJSON),
 		"SegmentRows":      segRows,
+		"UTMRegRows":       utmRegRows,
+		"UTMRevRows":       utmRevRows,
 	})
 }

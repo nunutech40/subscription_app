@@ -66,7 +66,7 @@ func Load() (*Config, error) {
 		SMTPUser:     getEnv("SMTP_USER", ""),
 		SMTPPass:     getEnv("SMTP_PASS", ""),
 
-		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:5173"),
+		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"),
 
 		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"),
 

@@ -122,6 +122,86 @@
     </div>
 </div>
 
+<!-- UTM Source: Registrations -->
+<div class="row row-cards mb-3">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-link me-2"></i>Registrasi per Landing Page</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Registrasi</th>
+                            <th>Active Users</th>
+                            <th>Conv. Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .UTMRegRows}}
+                        <tr>
+                            <td><code>{{.Source}}</code></td>
+                            <td>{{.Registrations}}</td>
+                            <td>{{.ActiveUsers}}</td>
+                            <td>
+                                <span class="badge bg-green-lt">{{.ConvRate}}</span>
+                            </td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center">
+                                <i class="ti ti-link-off me-1"></i>Belum ada data UTM
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- UTM Source: Revenue -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="ti ti-coins me-2"></i>Revenue per Landing Page</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Revenue</th>
+                            <th>Orders</th>
+                            <th>Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .UTMRevRows}}
+                        <tr>
+                            <td><code>{{.Source}}</code></td>
+                            <td><strong>Rp {{.Revenue}}</strong></td>
+                            <td>{{.TotalOrders}}</td>
+                            <td>
+                                <span class="badge bg-green-lt">{{.PaidOrders}} paid</span>
+                            </td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td colspan="4" class="text-muted text-center">
+                                <i class="ti ti-coins-off me-1"></i>Belum ada data revenue UTM
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // ── Revenue Line Chart ──────────────────────────
