@@ -16,27 +16,24 @@ import (
 
 // SubscriptionHandler handles subscription and checkout endpoints.
 type SubscriptionHandler struct {
-	queries       *repository.Queries
-	xenditService *service.XenditService
-	emailService  *service.EmailService
-	webhookToken  string // Xendit callback verification token
-	frontendURL   string // for redirect URLs
+	queries         *repository.Queries
+	midtransService *service.MidtransService
+	emailService    *service.EmailService
+	frontendURL     string // for redirect URLs
 }
 
 // NewSubscriptionHandler creates a new SubscriptionHandler.
 func NewSubscriptionHandler(
 	queries *repository.Queries,
-	xenditService *service.XenditService,
+	midtransService *service.MidtransService,
 	emailService *service.EmailService,
-	webhookToken string,
 	frontendURL string,
 ) *SubscriptionHandler {
 	return &SubscriptionHandler{
-		queries:       queries,
-		xenditService: xenditService,
-		emailService:  emailService,
-		webhookToken:  webhookToken,
-		frontendURL:   frontendURL,
+		queries:         queries,
+		midtransService: midtransService,
+		emailService:    emailService,
+		frontendURL:     frontendURL,
 	}
 }
 
@@ -87,6 +84,7 @@ func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 	userIDStr, _ := c.Get("user_id")
 	userID := stringToUUID(userIDStr.(string))
 	email, _ := c.Get("email")
+	userName, _ := c.Get("name")
 
 	// Get plan details
 	planUUID := stringToUUID(req.PlanID)
@@ -127,126 +125,116 @@ func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 
 	subID := uuidToString(sub.ID)
 
-	// Create Xendit invoice
-	invoice, err := h.xenditService.CreateInvoice(c.Request.Context(), service.CreateInvoiceInput{
-		ExternalID:  subID,
-		Amount:      int(plan.PriceIdr),
-		PayerEmail:  email.(string),
-		Description: fmt.Sprintf("Subscription %s — %s (%s)", plan.ProductID.String, plan.Label.String, plan.Segment),
-		SuccessURL:  h.frontendURL + "/payment/success?sub=" + subID,
-		FailureURL:  h.frontendURL + "/payment/failed?sub=" + subID,
-	})
-	if err != nil {
-		log.Printf("xendit create invoice error: %v", err)
-		RespondError(c, http.StatusBadGateway, "PAYMENT_ERROR", "Gagal membuat invoice pembayaran")
-		return
+	// Resolve payer name
+	payerName := "Pelanggan"
+	if name, ok := userName.(string); ok && name != "" {
+		payerName = name
 	}
 
-	// Update subscription with xendit invoice ID
-	_ = h.queries.UpdateSubscriptionStatus(c.Request.Context(), repository.UpdateSubscriptionStatusParams{
-		ID:     sub.ID,
-		Status: pgtype.Text{String: "pending", Valid: true},
+	// Create Midtrans Snap transaction
+	snapResp, err := h.midtransService.CreateTransaction(c.Request.Context(), service.CreateTransactionInput{
+		OrderID:     subID,
+		Amount:      int(plan.PriceIdr),
+		PayerEmail:  email.(string),
+		PayerName:   payerName,
+		Description: fmt.Sprintf("Subscription %s — %s (%s)", plan.ProductID.String, plan.Label.String, plan.Segment),
+		FinishURL:   h.frontendURL + "/#/payment/success?sub=" + subID,
 	})
-
-	// Store xendit_invoice_id — need a separate query for this
-	// For now we use the existing one; we'll add a proper update query
+	if err != nil {
+		log.Printf("midtrans create transaction error: %v", err)
+		RespondError(c, http.StatusBadGateway, "PAYMENT_ERROR", "Gagal membuat transaksi pembayaran")
+		return
+	}
 
 	RespondSuccess(c, http.StatusCreated, gin.H{
 		"subscription_id": subID,
-		"checkout_url":    invoice.InvoiceURL,
-		"invoice_id":      invoice.ID,
-		"amount":          invoice.Amount,
+		"checkout_url":    snapResp.RedirectURL,
+		"snap_token":      snapResp.Token,
+		"amount":          plan.PriceIdr,
 	}, "Silakan lanjutkan pembayaran")
 }
 
-// ── Step 2.3: Xendit Webhook ────────────────────────────────────────
+// ── Step 2.3: Midtrans Webhook ──────────────────────────────────────
 
-// XenditWebhook handles POST /api/xendit/webhook
-func (h *SubscriptionHandler) XenditWebhook(c *gin.Context) {
-	// Verify callback token
-	callbackToken := c.GetHeader("X-Callback-Token")
-	if callbackToken != h.webhookToken {
-		log.Printf("⚠️ Invalid Xendit callback token")
-		c.AbortWithStatus(http.StatusForbidden)
-		return
-	}
-
-	var payload service.WebhookPayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		log.Printf("⚠️ Invalid webhook payload: %v", err)
+// MidtransWebhook handles POST /api/midtrans/webhook
+func (h *SubscriptionHandler) MidtransWebhook(c *gin.Context) {
+	var notif service.MidtransNotification
+	if err := c.ShouldBindJSON(&notif); err != nil {
+		log.Printf("⚠️ Invalid Midtrans webhook payload: %v", err)
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("📥 Xendit webhook: invoice=%s status=%s external_id=%s",
-		payload.ID, payload.Status, payload.ExternalID)
+	// Verify signature: SHA512(order_id + status_code + gross_amount + server_key)
+	if !h.midtransService.VerifySignature(notif) {
+		log.Printf("⚠️ Invalid Midtrans signature for order_id=%s", notif.OrderID)
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
+	log.Printf("📥 Midtrans webhook: order_id=%s status=%s payment_type=%s",
+		notif.OrderID, notif.TransactionStatus, notif.PaymentType)
 
 	ctx := c.Request.Context()
 
-	switch payload.Status {
-	case "PAID":
-		// Activate subscription by external_id (our subscription UUID)
-		err := h.queries.ActivateSubscriptionByInvoice(ctx,
-			repository.ActivateSubscriptionByInvoiceParams{
-				XenditInvoiceID: pgtype.Text{String: payload.ID, Valid: true},
-				XenditPaymentID: pgtype.Text{String: payload.PaymentID, Valid: true},
-			})
-		if err != nil {
-			// Try by external_id (subscription UUID)
-			subID := stringToUUID(payload.ExternalID)
-			sub, getErr := h.queries.GetSubscriptionByID(ctx, subID)
-			if getErr != nil {
-				log.Printf("❌ Subscription not found for external_id=%s: %v", payload.ExternalID, getErr)
-				c.JSON(http.StatusOK, gin.H{"status": "acknowledged"})
-				return
-			}
-
-			// Update manually
-			_ = h.queries.UpdateSubscriptionStatus(ctx, repository.UpdateSubscriptionStatusParams{
-				ID:     sub.ID,
-				Status: pgtype.Text{String: "active", Valid: true},
-			})
-		}
-
-		// Activate the user account + send welcome email
-		subID := stringToUUID(payload.ExternalID)
+	if service.IsPaymentSuccess(notif) {
+		// order_id is our subscription UUID
+		subID := stringToUUID(notif.OrderID)
 		sub, err := h.queries.GetSubscriptionByID(ctx, subID)
-		if err == nil {
-			_ = h.queries.SetUserActive(ctx, repository.SetUserActiveParams{
-				IsActive: pgtype.Bool{Bool: true, Valid: true},
-				ID:       sub.UserID,
-			})
-
-			// Send welcome email
-			user, userErr := h.queries.GetUserByID(ctx, sub.UserID)
-			if userErr == nil {
-				expiresStr := sub.ExpiresAt.Time.Format("2 January 2006")
-				go func() {
-					if emailErr := h.emailService.SendWelcomeEmail(
-						ctx, user.Email, user.Name.String,
-						sub.ProductID.String, expiresStr,
-					); emailErr != nil {
-						log.Printf("⚠️ Failed to send welcome email: %v", emailErr)
-					}
-				}()
-			}
-
-			log.Printf("✅ Subscription activated: %s (user=%s)", payload.ExternalID, uuidToString(sub.UserID))
+		if err != nil {
+			log.Printf("❌ Subscription not found for order_id=%s: %v", notif.OrderID, err)
+			c.JSON(http.StatusOK, gin.H{"status": "acknowledged"})
+			return
 		}
 
-	case "EXPIRED":
-		subID := stringToUUID(payload.ExternalID)
+		// Activate subscription
+		_ = h.queries.UpdateSubscriptionStatus(ctx, repository.UpdateSubscriptionStatusParams{
+			ID:     sub.ID,
+			Status: pgtype.Text{String: "active", Valid: true},
+		})
+
+		// Store Midtrans transaction ID in xendit_invoice_id column (reusing existing column)
+		_ = h.queries.SetXenditInvoiceID(ctx, repository.SetXenditInvoiceIDParams{
+			ID:              sub.ID,
+			XenditInvoiceID: pgtype.Text{String: notif.TransactionID, Valid: true},
+		})
+
+		// Activate the user account
+		_ = h.queries.SetUserActive(ctx, repository.SetUserActiveParams{
+			IsActive: pgtype.Bool{Bool: true, Valid: true},
+			ID:       sub.UserID,
+		})
+
+		// Send welcome email
+		user, userErr := h.queries.GetUserByID(ctx, sub.UserID)
+		if userErr == nil {
+			expiresStr := sub.ExpiresAt.Time.Format("2 January 2006")
+			go func() {
+				if emailErr := h.emailService.SendWelcomeEmail(
+					ctx, user.Email, user.Name.String,
+					sub.ProductID.String, expiresStr,
+				); emailErr != nil {
+					log.Printf("⚠️ Failed to send welcome email: %v", emailErr)
+				}
+			}()
+		}
+
+		log.Printf("✅ Subscription activated: %s (user=%s, payment=%s)",
+			notif.OrderID, uuidToString(sub.UserID), notif.PaymentType)
+
+	} else if service.IsPaymentExpired(notif) {
+		subID := stringToUUID(notif.OrderID)
 		sub, err := h.queries.GetSubscriptionByID(ctx, subID)
 		if err == nil {
 			_ = h.queries.UpdateSubscriptionStatus(ctx, repository.UpdateSubscriptionStatusParams{
 				ID:     sub.ID,
 				Status: pgtype.Text{String: "expired", Valid: true},
 			})
-			log.Printf("⏰ Subscription expired: %s", payload.ExternalID)
+			log.Printf("⏰ Subscription expired/cancelled: %s (status=%s)", notif.OrderID, notif.TransactionStatus)
 		}
 	}
 
-	// Always respond 200 to Xendit (idempotent)
+	// Always respond 200 to Midtrans (idempotent)
 	c.JSON(http.StatusOK, gin.H{"status": "acknowledged"})
 }
 

@@ -20,10 +20,10 @@ type Config struct {
 	JWTExpiry              string
 	RefreshTokenExpiryDays int
 
-	// Xendit
-	XenditAPIKey       string
-	XenditWebhookToken string
-	XenditBaseURL      string
+	// Midtrans
+	MidtransServerKey string
+	MidtransClientKey string
+	MidtransBaseURL   string
 
 	// Email
 	ResendAPIKey string
@@ -55,9 +55,9 @@ func Load() (*Config, error) {
 		JWTExpiry:              getEnv("JWT_EXPIRY", "1h"),
 		RefreshTokenExpiryDays: getEnvInt("REFRESH_TOKEN_EXPIRY_DAYS", 30),
 
-		XenditAPIKey:       getEnv("XENDIT_API_KEY", ""),
-		XenditWebhookToken: getEnv("XENDIT_WEBHOOK_TOKEN", ""),
-		XenditBaseURL:      getEnv("XENDIT_BASE_URL", "https://api.xendit.co"),
+		MidtransServerKey: getEnv("MIDTRANS_SERVER_KEY", ""),
+		MidtransClientKey: getEnv("MIDTRANS_CLIENT_KEY", ""),
+		MidtransBaseURL:   getEnv("MIDTRANS_BASE_URL", "https://app.sandbox.midtrans.com"),
 
 		ResendAPIKey: getEnv("RESEND_API_KEY", ""),
 		FromEmail:    getEnv("FROM_EMAIL", "noreply@sains.id"),

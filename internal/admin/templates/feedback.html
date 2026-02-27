@@ -168,7 +168,14 @@
                             {{end}}
                         </td>
                         <td style="max-width: 300px;">
-                            <div class="text-wrap" style="white-space: pre-wrap; word-break: break-word;">{{.Message}}
+                            <div class="msg-preview" onclick="toggleDetail({{.ID}})" style="cursor:pointer;">
+                                <div class="msg-truncated"
+                                    style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px;">
+                                    {{.Message}}
+                                </div>
+                                <small class="text-primary" style="cursor:pointer;">
+                                    <i class="ti ti-eye me-1"></i>Baca selengkapnya
+                                </small>
                             </div>
                         </td>
                         <td>
@@ -192,6 +199,37 @@
                             {{end}}
                         </td>
                         </tr>
+                        <!-- Expandable detail row -->
+                        <tr id="detail-{{.ID}}" style="display:none;">
+                            <td colspan="8" style="padding:0;">
+                                <div
+                                    style="background:rgba(99,102,241,0.05); border-left:3px solid #6366f1; padding:16px 20px; margin:0;">
+                                    <div
+                                        style="display:flex; justify-content:space-between; align-items:start; gap:16px;">
+                                        <div style="flex:1;">
+                                            <div style="margin-bottom:8px;">
+                                                <span class="badge bg-blue-lt me-2">{{.Email}}</span>
+                                                <span class="badge bg-secondary-lt me-2">{{.Role}}</span>
+                                                <span class="text-muted small">{{.CreatedAt}}</span>
+                                            </div>
+                                            <div
+                                                style="white-space:pre-wrap; word-break:break-word; line-height:1.6; font-size:14px; color:#e2e8f0;">
+                                                {{.Message}}</div>
+                                            {{if .PageURL}}
+                                            <div style="margin-top:10px;">
+                                                <a href="{{.PageURL}}" target="_blank" class="text-muted small">
+                                                    <i class="ti ti-external-link me-1"></i>Dikirim dari: {{.PageURL}}
+                                                </a>
+                                            </div>
+                                            {{end}}
+                                        </div>
+                                        <button class="btn btn-sm btn-ghost-secondary" onclick="toggleDetail({{.ID}})">
+                                            <i class="ti ti-x"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
                         {{end}}
                         {{else}}
                         <tr>
@@ -206,4 +244,13 @@
         </div>
     </div>
 </div>
+
+<script>
+    function toggleDetail(id) {
+        const row = document.getElementById('detail-' + id);
+        if (row) {
+            row.style.display = row.style.display === 'none' ? '' : 'none';
+        }
+    }
+</script>
 {{end}}

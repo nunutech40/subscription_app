@@ -50,7 +50,7 @@ func main() {
 
 	tokenService := service.NewTokenService(cfg.JWTSecret, jwtExpiry)
 	authService := service.NewAuthService(queries)
-	xenditService := service.NewXenditService(cfg.XenditAPIKey, cfg.XenditBaseURL)
+	midtransService := service.NewMidtransService(cfg.MidtransServerKey, cfg.MidtransBaseURL)
 	emailService := service.NewEmailService(cfg.ResendAPIKey, cfg.FromEmail, cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass)
 	anomalyService := service.NewAnomalyService(queries)
 
@@ -58,7 +58,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService, tokenService, anomalyService, emailService, queries, cfg.RefreshTokenExpiryDays)
 	planHandler := handler.NewPlanHandler(queries)
 	guestHandler := handler.NewGuestHandler(queries)
-	subHandler := handler.NewSubscriptionHandler(queries, xenditService, emailService, cfg.XenditWebhookToken, cfg.FrontendURL)
+	subHandler := handler.NewSubscriptionHandler(queries, midtransService, emailService, cfg.FrontendURL)
 	feedbackHandler := handler.NewFeedbackHandler(queries)
 
 	// ── Router ────────────────────────────────────────────────────────
@@ -99,8 +99,8 @@ func main() {
 		// Quota status (public)
 		api.GET("/quota-status", subHandler.QuotaStatus)
 
-		// Xendit webhook (public, verified by X-Callback-Token)
-		api.POST("/xendit/webhook", subHandler.XenditWebhook)
+		// Midtrans webhook (public, verified by signature)
+		api.POST("/midtrans/webhook", subHandler.MidtransWebhook)
 	}
 
 	// ── Protected API routes ─────────────────────────────────────────
