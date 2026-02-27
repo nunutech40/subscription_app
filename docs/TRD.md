@@ -76,18 +76,36 @@ api/
 │   └── main.go                     ← Entry point, router setup, graceful shutdown
 │
 ├── internal/
-│   ├── admin/                      ← Admin dashboard (HTMX SSR)
-│   │   ├── admin_handler.go        ← All admin page handlers (~700 lines)
+│   ├── admin/                      ← Admin dashboard (HTMX SSR, MODULAR)
+│   │   ├── admin_handler.go        ← Core struct + render helper (~60 lines)
+│   │   ├── admin_auth_handler.go   ← Login, Logout, Middleware
+│   │   ├── dashboard_handler.go    ← Dashboard + stats
+│   │   ├── audience_handler.go     ← Audience unified view
+│   │   ├── user_handler.go         ← Users, UserDetail, Lock/Unlock
+│   │   ├── guest_code_handler.go   ← Guest code CRUD
+│   │   ├── subscription_handler.go ← Subscriptions list
+│   │   ├── pricing_handler.go      ← Pricing plans + inline edit
+│   │   ├── revenue_handler.go      ← Revenue analytics + charts
+│   │   ├── anomaly_handler.go      ← Anomaly flagged users
+│   │   ├── settings_product_audit_handler.go ← Settings, Products, Audit
+│   │   ├── helpers.go              ← Shared utilities (formatIDR, etc.)
+│   │   ├── helpers_test.go         ← Unit tests
 │   │   └── templates/              ← HTML templates (go:embed)
 │   │       ├── layout.html         ← Tabler dark theme + sidebar nav
+│   │       ├── login.html
 │   │       ├── dashboard.html      ← Stats, quota, recent activity
+│   │       ├── audience.html       ← Unified user + guest view
 │   │       ├── users.html          ← User list + search + filter
 │   │       ├── user_detail.html    ← User detail + sessions + anomalies
 │   │       ├── anomalies.html      ← Flagged accounts center
 │   │       ├── guest_codes.html    ← Guest code management
 │   │       ├── guest_code_detail.html ← Code detail + login history
 │   │       ├── subscriptions.html  ← Subscription list
-│   │       └── pricing.html        ← Pricing plans by segment
+│   │       ├── pricing.html        ← Pricing plans by segment
+│   │       ├── revenue.html        ← Revenue analytics page
+│   │       ├── products.html       ← Product management
+│   │       ├── settings.html       ← System config
+│   │       └── audit.html          ← Audit log viewer
 │   │
 │   ├── config/config.go            ← Environment loader + validation
 │   ├── database/postgres.go        ← pgx pool init + graceful close
