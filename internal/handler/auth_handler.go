@@ -50,9 +50,10 @@ func NewAuthHandler(
 // ── Request/Response types ──────────────────────────────────────────
 
 type registerRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Name     string `json:"name" binding:"required,min=2"`
-	Password string `json:"password" binding:"required,min=8"`
+	Email     string `json:"email" binding:"required,email"`
+	Name      string `json:"name" binding:"required,min=2"`
+	Password  string `json:"password" binding:"required,min=8"`
+	UtmSource string `json:"utm_source"` // optional: landing page identifier
 }
 
 type loginRequest struct {
@@ -108,9 +109,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	result, err := h.authService.Register(c.Request.Context(), service.RegisterInput{
-		Email:    req.Email,
-		Name:     req.Name,
-		Password: req.Password,
+		Email:     req.Email,
+		Name:      req.Name,
+		Password:  req.Password,
+		UtmSource: req.UtmSource,
 	})
 	if err != nil {
 		switch {

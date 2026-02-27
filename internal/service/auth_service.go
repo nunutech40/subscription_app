@@ -33,9 +33,10 @@ func NewAuthService(queries *repository.Queries) *AuthService {
 
 // RegisterInput holds registration request data.
 type RegisterInput struct {
-	Email    string
-	Name     string
-	Password string
+	Email     string
+	Name      string
+	Password  string
+	UtmSource string // optional: which landing page (e.g. "student-kimia-v1")
 }
 
 // RegisterResult holds registration response data.
@@ -76,6 +77,7 @@ func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*Regis
 		PasswordHash: string(hash),
 		Role:         pgtype.Text{String: "subscriber", Valid: true},
 		IsActive:     pgtype.Bool{Bool: false, Valid: true}, // aktif setelah bayar
+		UtmSource:    pgtype.Text{String: input.UtmSource, Valid: input.UtmSource != ""},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)

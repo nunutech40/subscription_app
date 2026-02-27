@@ -52,10 +52,10 @@ func (q *Queries) CountAllSubscriptions(ctx context.Context) (int64, error) {
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (
   user_id, product_id, plan_id, segment,
-  xendit_invoice_id, amount_paid_idr, status, expires_at
+  xendit_invoice_id, amount_paid_idr, status, expires_at, utm_source
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at, utm_source
 `
 
 type CreateSubscriptionParams struct {
@@ -67,6 +67,7 @@ type CreateSubscriptionParams struct {
 	AmountPaidIdr   pgtype.Int4        `json:"amount_paid_idr"`
 	Status          pgtype.Text        `json:"status"`
 	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	UtmSource       pgtype.Text        `json:"utm_source"`
 }
 
 func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error) {
@@ -79,6 +80,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		arg.AmountPaidIdr,
 		arg.Status,
 		arg.ExpiresAt,
+		arg.UtmSource,
 	)
 	var i Subscription
 	err := row.Scan(
@@ -95,12 +97,13 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.StartsAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.UtmSource,
 	)
 	return i, err
 }
 
 const getActiveSubscription = `-- name: GetActiveSubscription :one
-SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at FROM subscriptions
+SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at, utm_source FROM subscriptions
 WHERE user_id = $1 AND product_id = $2 AND status = 'active' AND expires_at > now()
 LIMIT 1
 `
@@ -127,6 +130,7 @@ func (q *Queries) GetActiveSubscription(ctx context.Context, arg GetActiveSubscr
 		&i.StartsAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.UtmSource,
 	)
 	return i, err
 }
@@ -251,8 +255,51 @@ func (q *Queries) GetRevenueBySegment(ctx context.Context) ([]GetRevenueBySegmen
 	return items, nil
 }
 
+const getRevenueByUTMSource = `-- name: GetRevenueByUTMSource :many
+SELECT
+  COALESCE(utm_source, 'direct') AS source,
+  COALESCE(SUM(amount_paid_idr), 0)::bigint AS revenue,
+  COUNT(*)::bigint AS total_orders,
+  COUNT(*) FILTER (WHERE status = 'active')::bigint AS paid_orders
+FROM subscriptions
+GROUP BY utm_source
+ORDER BY revenue DESC
+`
+
+type GetRevenueByUTMSourceRow struct {
+	Source      string `json:"source"`
+	Revenue     int64  `json:"revenue"`
+	TotalOrders int64  `json:"total_orders"`
+	PaidOrders  int64  `json:"paid_orders"`
+}
+
+func (q *Queries) GetRevenueByUTMSource(ctx context.Context) ([]GetRevenueByUTMSourceRow, error) {
+	rows, err := q.db.Query(ctx, getRevenueByUTMSource)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetRevenueByUTMSourceRow{}
+	for rows.Next() {
+		var i GetRevenueByUTMSourceRow
+		if err := rows.Scan(
+			&i.Source,
+			&i.Revenue,
+			&i.TotalOrders,
+			&i.PaidOrders,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSubscriptionByID = `-- name: GetSubscriptionByID :one
-SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at FROM subscriptions WHERE id = $1
+SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at, utm_source FROM subscriptions WHERE id = $1
 `
 
 func (q *Queries) GetSubscriptionByID(ctx context.Context, id pgtype.UUID) (Subscription, error) {
@@ -272,6 +319,7 @@ func (q *Queries) GetSubscriptionByID(ctx context.Context, id pgtype.UUID) (Subs
 		&i.StartsAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.UtmSource,
 	)
 	return i, err
 }
@@ -288,7 +336,7 @@ func (q *Queries) GetTotalRevenue(ctx context.Context) (int64, error) {
 }
 
 const listAllSubscriptions = `-- name: ListAllSubscriptions :many
-SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, u.email, u.name FROM subscriptions s
+SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, s.utm_source, u.email, u.name FROM subscriptions s
 JOIN users u ON u.id = s.user_id
 ORDER BY s.created_at DESC LIMIT $1 OFFSET $2
 `
@@ -312,6 +360,7 @@ type ListAllSubscriptionsRow struct {
 	StartsAt        pgtype.Timestamptz `json:"starts_at"`
 	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UtmSource       pgtype.Text        `json:"utm_source"`
 	Email           string             `json:"email"`
 	Name            pgtype.Text        `json:"name"`
 }
@@ -339,6 +388,7 @@ func (q *Queries) ListAllSubscriptions(ctx context.Context, arg ListAllSubscript
 			&i.StartsAt,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.UtmSource,
 			&i.Email,
 			&i.Name,
 		); err != nil {
@@ -353,7 +403,7 @@ func (q *Queries) ListAllSubscriptions(ctx context.Context, arg ListAllSubscript
 }
 
 const listExpiringSubscriptions = `-- name: ListExpiringSubscriptions :many
-SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, u.email, u.name FROM subscriptions s
+SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, s.utm_source, u.email, u.name FROM subscriptions s
 JOIN users u ON u.id = s.user_id
 WHERE s.status = 'active' AND s.expires_at BETWEEN now() AND now() + INTERVAL '7 days'
 ORDER BY s.expires_at ASC
@@ -373,6 +423,7 @@ type ListExpiringSubscriptionsRow struct {
 	StartsAt        pgtype.Timestamptz `json:"starts_at"`
 	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UtmSource       pgtype.Text        `json:"utm_source"`
 	Email           string             `json:"email"`
 	Name            pgtype.Text        `json:"name"`
 }
@@ -400,6 +451,7 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context) ([]ListExpiring
 			&i.StartsAt,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.UtmSource,
 			&i.Email,
 			&i.Name,
 		); err != nil {
@@ -414,7 +466,7 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context) ([]ListExpiring
 }
 
 const listSubscriptionsByStatus = `-- name: ListSubscriptionsByStatus :many
-SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, u.email, u.name FROM subscriptions s
+SELECT s.id, s.user_id, s.product_id, s.plan_id, s.segment, s.xendit_invoice_id, s.xendit_payment_id, s.amount_paid_idr, s.status, s.paid_at, s.starts_at, s.expires_at, s.created_at, s.utm_source, u.email, u.name FROM subscriptions s
 JOIN users u ON u.id = s.user_id
 WHERE s.status = $1
 ORDER BY s.created_at DESC LIMIT $2 OFFSET $3
@@ -440,6 +492,7 @@ type ListSubscriptionsByStatusRow struct {
 	StartsAt        pgtype.Timestamptz `json:"starts_at"`
 	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UtmSource       pgtype.Text        `json:"utm_source"`
 	Email           string             `json:"email"`
 	Name            pgtype.Text        `json:"name"`
 }
@@ -467,6 +520,7 @@ func (q *Queries) ListSubscriptionsByStatus(ctx context.Context, arg ListSubscri
 			&i.StartsAt,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.UtmSource,
 			&i.Email,
 			&i.Name,
 		); err != nil {
@@ -481,7 +535,7 @@ func (q *Queries) ListSubscriptionsByStatus(ctx context.Context, arg ListSubscri
 }
 
 const listUserSubscriptions = `-- name: ListUserSubscriptions :many
-SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at, utm_source FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListUserSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error) {
@@ -507,6 +561,7 @@ func (q *Queries) ListUserSubscriptions(ctx context.Context, userID pgtype.UUID)
 			&i.StartsAt,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+			&i.UtmSource,
 		); err != nil {
 			return nil, err
 		}

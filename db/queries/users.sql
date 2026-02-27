@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users (email, name, password_hash, role, is_active)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO users (email, name, password_hash, role, is_active, utm_source)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetUserByEmail :one
@@ -51,3 +51,13 @@ GROUP BY u.id
 HAVING COALESCE(SUM(al.score_delta), 0) >= $1
 ORDER BY total_score DESC
 LIMIT $2 OFFSET $3;
+
+-- name: GetRegistrationsByUTMSource :many
+SELECT
+  COALESCE(utm_source, 'direct') AS source,
+  COUNT(*)::bigint AS total_registrations,
+  COUNT(*) FILTER (WHERE is_active = TRUE)::bigint AS active_users
+FROM users
+WHERE role = 'subscriber'
+GROUP BY utm_source
+ORDER BY total_registrations DESC;

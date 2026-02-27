@@ -76,7 +76,8 @@ func toSubscriptionDTO(s repository.Subscription) subscriptionDTO {
 // Checkout handles POST /api/checkout
 func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 	var req struct {
-		PlanID string `json:"plan_id" binding:"required"`
+		PlanID    string `json:"plan_id" binding:"required"`
+		UtmSource string `json:"utm_source"` // optional: landing page identifier
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		RespondBadRequest(c, "plan_id wajib diisi")
@@ -116,6 +117,7 @@ func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 		AmountPaidIdr: pgtype.Int4{Int32: plan.PriceIdr, Valid: true},
 		Status:        pgtype.Text{String: "pending", Valid: true},
 		ExpiresAt:     pgtype.Timestamptz{}, // will be set when paid
+		UtmSource:     pgtype.Text{String: req.UtmSource, Valid: req.UtmSource != ""},
 	})
 	if err != nil {
 		log.Printf("failed to create subscription: %v", err)

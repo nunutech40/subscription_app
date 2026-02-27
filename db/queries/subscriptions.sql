@@ -1,9 +1,9 @@
 -- name: CreateSubscription :one
 INSERT INTO subscriptions (
   user_id, product_id, plan_id, segment,
-  xendit_invoice_id, amount_paid_idr, status, expires_at
+  xendit_invoice_id, amount_paid_idr, status, expires_at, utm_source
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetSubscriptionByID :one
@@ -89,3 +89,13 @@ FROM subscriptions
 WHERE created_at >= NOW() - INTERVAL '12 months'
 GROUP BY DATE_TRUNC('month', created_at)
 ORDER BY DATE_TRUNC('month', created_at) ASC;
+
+-- name: GetRevenueByUTMSource :many
+SELECT
+  COALESCE(utm_source, 'direct') AS source,
+  COALESCE(SUM(amount_paid_idr), 0)::bigint AS revenue,
+  COUNT(*)::bigint AS total_orders,
+  COUNT(*) FILTER (WHERE status = 'active')::bigint AS paid_orders
+FROM subscriptions
+GROUP BY utm_source
+ORDER BY revenue DESC;

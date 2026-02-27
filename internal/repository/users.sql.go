@@ -61,9 +61,9 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, name, password_hash, role, is_active)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, email, name, password_hash, role, is_active, anomaly_score, created_at
+INSERT INTO users (email, name, password_hash, role, is_active, utm_source)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, email, name, password_hash, role, is_active, anomaly_score, created_at, utm_source
 `
 
 type CreateUserParams struct {
@@ -72,6 +72,7 @@ type CreateUserParams struct {
 	PasswordHash string      `json:"password_hash"`
 	Role         pgtype.Text `json:"role"`
 	IsActive     pgtype.Bool `json:"is_active"`
+	UtmSource    pgtype.Text `json:"utm_source"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -81,6 +82,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.PasswordHash,
 		arg.Role,
 		arg.IsActive,
+		arg.UtmSource,
 	)
 	var i User
 	err := row.Scan(
@@ -92,8 +94,46 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.IsActive,
 		&i.AnomalyScore,
 		&i.CreatedAt,
+		&i.UtmSource,
 	)
 	return i, err
+}
+
+const getRegistrationsByUTMSource = `-- name: GetRegistrationsByUTMSource :many
+SELECT
+  COALESCE(utm_source, 'direct') AS source,
+  COUNT(*)::bigint AS total_registrations,
+  COUNT(*) FILTER (WHERE is_active = TRUE)::bigint AS active_users
+FROM users
+WHERE role = 'subscriber'
+GROUP BY utm_source
+ORDER BY total_registrations DESC
+`
+
+type GetRegistrationsByUTMSourceRow struct {
+	Source             string `json:"source"`
+	TotalRegistrations int64  `json:"total_registrations"`
+	ActiveUsers        int64  `json:"active_users"`
+}
+
+func (q *Queries) GetRegistrationsByUTMSource(ctx context.Context) ([]GetRegistrationsByUTMSourceRow, error) {
+	rows, err := q.db.Query(ctx, getRegistrationsByUTMSource)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetRegistrationsByUTMSourceRow{}
+	for rows.Next() {
+		var i GetRegistrationsByUTMSourceRow
+		if err := rows.Scan(&i.Source, &i.TotalRegistrations, &i.ActiveUsers); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUserAnomalyScore = `-- name: GetUserAnomalyScore :one
@@ -108,7 +148,7 @@ func (q *Queries) GetUserAnomalyScore(ctx context.Context, userID pgtype.UUID) (
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users WHERE email = $1
+SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at, utm_source FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -123,12 +163,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.IsActive,
 		&i.AnomalyScore,
 		&i.CreatedAt,
+		&i.UtmSource,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users WHERE id = $1
+SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at, utm_source FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error) {
@@ -143,12 +184,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.IsActive,
 		&i.AnomalyScore,
 		&i.CreatedAt,
+		&i.UtmSource,
 	)
 	return i, err
 }
 
 const listFlaggedUsers = `-- name: ListFlaggedUsers :many
-SELECT u.id, u.email, u.name, u.password_hash, u.role, u.is_active, u.anomaly_score, u.created_at, COALESCE(SUM(al.score_delta), 0)::int AS total_score
+SELECT u.id, u.email, u.name, u.password_hash, u.role, u.is_active, u.anomaly_score, u.created_at, u.utm_source, COALESCE(SUM(al.score_delta), 0)::int AS total_score
 FROM users u
 LEFT JOIN anomaly_logs al ON al.user_id = u.id
 GROUP BY u.id
@@ -172,6 +214,7 @@ type ListFlaggedUsersRow struct {
 	IsActive     pgtype.Bool        `json:"is_active"`
 	AnomalyScore pgtype.Int4        `json:"anomaly_score"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UtmSource    pgtype.Text        `json:"utm_source"`
 	TotalScore   int32              `json:"total_score"`
 }
 
@@ -193,6 +236,7 @@ func (q *Queries) ListFlaggedUsers(ctx context.Context, arg ListFlaggedUsersPara
 			&i.IsActive,
 			&i.AnomalyScore,
 			&i.CreatedAt,
+			&i.UtmSource,
 			&i.TotalScore,
 		); err != nil {
 			return nil, err
@@ -206,7 +250,7 @@ func (q *Queries) ListFlaggedUsers(ctx context.Context, arg ListFlaggedUsersPara
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
+SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at, utm_source FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
 type ListUsersParams struct {
@@ -232,6 +276,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.IsActive,
 			&i.AnomalyScore,
 			&i.CreatedAt,
+			&i.UtmSource,
 		); err != nil {
 			return nil, err
 		}
@@ -244,7 +289,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 }
 
 const searchUsers = `-- name: SearchUsers :many
-SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users
+SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at, utm_source FROM users
 WHERE email ILIKE '%' || $1 || '%'
 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
@@ -273,6 +318,7 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]Use
 			&i.IsActive,
 			&i.AnomalyScore,
 			&i.CreatedAt,
+			&i.UtmSource,
 		); err != nil {
 			return nil, err
 		}
@@ -285,7 +331,7 @@ func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]Use
 }
 
 const searchUsersByRole = `-- name: SearchUsersByRole :many
-SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at FROM users
+SELECT id, email, name, password_hash, role, is_active, anomaly_score, created_at, utm_source FROM users
 WHERE email ILIKE '%' || $1 || '%' AND role = $2
 ORDER BY created_at DESC LIMIT $3 OFFSET $4
 `
@@ -320,6 +366,7 @@ func (q *Queries) SearchUsersByRole(ctx context.Context, arg SearchUsersByRolePa
 			&i.IsActive,
 			&i.AnomalyScore,
 			&i.CreatedAt,
+			&i.UtmSource,
 		); err != nil {
 			return nil, err
 		}

@@ -140,6 +140,7 @@ type Subscription struct {
 	StartsAt        pgtype.Timestamptz `json:"starts_at"`
 	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UtmSource       pgtype.Text        `json:"utm_source"`
 }
 
 type SystemConfig struct {
@@ -159,4 +160,5 @@ type User struct {
 	IsActive     pgtype.Bool        `json:"is_active"`
 	AnomalyScore pgtype.Int4        `json:"anomaly_score"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UtmSource    pgtype.Text        `json:"utm_source"`
 }
