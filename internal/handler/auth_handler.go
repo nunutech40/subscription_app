@@ -377,11 +377,13 @@ func (h *AuthHandler) GuestVerify(c *gin.Context) {
 	// 3. Mark OTP as verified
 	_ = h.queries.MarkOTPVerified(ctx, otpRecord.ID)
 
-	// 4. Upsert guest login (increment count) — only after verified
+	// 4. Upsert guest login (increment count + track IP) — only after verified
+	clientIP := parseIP(c.ClientIP())
 	_, _ = h.queries.UpsertGuestLogin(ctx, repository.UpsertGuestLoginParams{
 		GuestCodeID:    guestCode.ID,
 		Email:          req.Email,
 		ReferralSource: pgtype.Text{String: req.ReferralSource, Valid: req.ReferralSource != ""},
+		IpAddress:      clientIP,
 	})
 
 	// 5. Generate access token (guest role)

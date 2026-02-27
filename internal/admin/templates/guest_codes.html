@@ -43,6 +43,7 @@
                         <th>Label</th>
                         <th>Product</th>
                         <th>Max/Email</th>
+                        <th>Emails</th>
                         <th>Total Logins</th>
                         <th>Status</th>
                         <th>Expires</th>
@@ -56,6 +57,7 @@
                         <td>{{.Label}}</td>
                         <td>{{.ProductID}}</td>
                         <td>{{.MaxLoginsPerEmail}}</td>
+                        <td>{{.UniqueEmails}}</td>
                         <td>{{.TotalLogins}}</td>
                         <td>
                             {{if .IsActive}}<span class="badge bg-green">Active</span>

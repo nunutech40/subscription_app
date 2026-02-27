@@ -75,6 +75,7 @@ type GuestLogin struct {
 	LastLoginAt    pgtype.Timestamptz `json:"last_login_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	ReferralSource pgtype.Text        `json:"referral_source"`
+	IpAddress      *netip.Addr        `json:"ip_address"`
 }
 
 type GuestOtp struct {

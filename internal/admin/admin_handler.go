@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -100,8 +101,8 @@ type guestCodeRow struct {
 	ProductID         string
 	Label             string
 	MaxLoginsPerEmail int32
+	UniqueEmails      int64
 	TotalLogins       int64
-	LoginCount        int64
 	IsActive          bool
 	ExpiresAt         string
 	CreatedAt         string
@@ -236,12 +237,14 @@ func (h *AdminHandler) Dashboard(c *gin.Context) {
 
 	var codeRows []guestCodeRow
 	for _, g := range guestCodes {
-		logins, _ := h.queries.CountGuestCodeLogins(ctx, g.ID)
+		uniqueEmails, _ := h.queries.CountGuestCodeLogins(ctx, g.ID)
+		totalLogins, _ := h.queries.SumGuestCodeLogins(ctx, g.ID)
 		codeRows = append(codeRows, guestCodeRow{
-			Code:       g.Code,
-			Label:      g.Label.String,
-			LoginCount: logins,
-			ExpiresAt:  g.ExpiresAt.Time.Format("02 Jan 15:04"),
+			Code:         g.Code,
+			Label:        g.Label.String,
+			UniqueEmails: uniqueEmails,
+			TotalLogins:  totalLogins,
+			ExpiresAt:    g.ExpiresAt.Time.Format("02 Jan 15:04"),
 		})
 	}
 	// Build segment chart data from subscription data
@@ -272,6 +275,146 @@ func (h *AdminHandler) Dashboard(c *gin.Context) {
 		"GuestCodes":       codeRows,
 		"SegmentChartJSON": segmentChartJSON,
 	})
+}
+
+// ── Audience (unified view) ─────────────────────────────────────
+
+type audienceRow struct {
+	Email          string
+	UserType       string
+	GuestCode      string
+	ReferralSource string
+	TotalLogins    int64
+	AmountPaid     string
+	Location       string
+	LastActive     string
+}
+
+type audienceStats struct {
+	Total       int
+	Guests      int
+	Subscribers int
+	Revenue     string
+}
+
+func (h *AdminHandler) Audience(c *gin.Context) {
+	ctx := c.Request.Context()
+	typeFilter := c.DefaultQuery("type", "")
+	query := c.DefaultQuery("q", "")
+	partial := c.DefaultQuery("partial", "")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if page < 1 {
+		page = 1
+	}
+	perPage := int32(30)
+	offset := int32(page-1) * perPage
+
+	all, _ := h.queries.ListAllAudience(ctx, repository.ListAllAudienceParams{
+		Limit: 500, Offset: 0,
+	})
+
+	// Filter by type and search
+	var filtered []repository.ListAllAudienceRow
+	for _, a := range all {
+		if typeFilter != "" && a.UserType != typeFilter {
+			continue
+		}
+		if query != "" {
+			emailMatch := containsCI(a.Email, query)
+			refMatch := containsCI(a.ReferralSource, query)
+			codeMatch := containsCI(a.GuestCode, query)
+			if !emailMatch && !refMatch && !codeMatch {
+				continue
+			}
+		}
+		filtered = append(filtered, a)
+	}
+
+	// Stats
+	stats := audienceStats{Total: len(filtered)}
+	var totalRevenue int64
+	for _, a := range filtered {
+		switch a.UserType {
+		case "guest":
+			stats.Guests++
+		case "subscriber":
+			stats.Subscribers++
+		}
+		totalRevenue += a.AmountPaid
+	}
+	stats.Revenue = formatIDR(totalRevenue)
+
+	// Paginate
+	total := len(filtered)
+	start := int(offset)
+	if start > total {
+		start = total
+	}
+	end := start + int(perPage)
+	if end > total {
+		end = total
+	}
+	paged := filtered[start:end]
+
+	// Resolve IPs to locations
+	ipCache := make(map[string]string)
+	var rows []audienceRow
+	for _, a := range paged {
+		loc := ""
+		ipStr := fmt.Sprintf("%v", a.IpAddress)
+		if ipStr == "<nil>" {
+			ipStr = ""
+		}
+		if ipStr != "" {
+			if cached, ok := ipCache[ipStr]; ok {
+				loc = cached
+			} else {
+				loc = resolveIPLocation(ipStr)
+				ipCache[ipStr] = loc
+			}
+		}
+
+		rows = append(rows, audienceRow{
+			Email:          a.Email,
+			UserType:       a.UserType,
+			GuestCode:      a.GuestCode,
+			ReferralSource: a.ReferralSource,
+			TotalLogins:    a.TotalLogins,
+			AmountPaid:     formatIDR(a.AmountPaid),
+			Location:       loc,
+			LastActive:     a.LastActive.Time.Format("02 Jan 15:04"),
+		})
+	}
+
+	shown := end
+	hasMore := end < total
+
+	data := gin.H{
+		"Title":      "Audience",
+		"active":     "audience",
+		"Audience":   rows,
+		"Stats":      stats,
+		"Query":      query,
+		"TypeFilter": typeFilter,
+		"Page":       page,
+		"Total":      total,
+		"Shown":      shown,
+		"HasMore":    hasMore,
+		"NextPage":   page + 1,
+	}
+
+	// Partial mode: return just the rows (for Load More)
+	if partial == "1" {
+		tmpl := template.Must(template.ParseFS(h.fs, "templates/audience.html"))
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		if err := tmpl.ExecuteTemplate(c.Writer, "audience-rows", data); err != nil {
+			log.Printf("partial template error: %v", err)
+			c.String(500, "Template error: "+err.Error())
+		}
+		return
+	}
+
+	h.render(c, "audience", data)
 }
 
 // ── Users ────────────────────────────────────────────────────────
@@ -498,14 +641,16 @@ func (h *AdminHandler) GuestCodes(c *gin.Context) {
 
 	var rows []guestCodeRow
 	for _, g := range codes {
-		logins, _ := h.queries.CountGuestCodeLogins(ctx, g.ID)
+		uniqueEmails, _ := h.queries.CountGuestCodeLogins(ctx, g.ID)
+		totalLogins, _ := h.queries.SumGuestCodeLogins(ctx, g.ID)
 		rows = append(rows, guestCodeRow{
 			ID:                uuidStr(g.ID),
 			Code:              g.Code,
 			ProductID:         g.ProductID.String,
 			Label:             g.Label.String,
 			MaxLoginsPerEmail: g.MaxLoginsPerEmail.Int32,
-			TotalLogins:       logins,
+			UniqueEmails:      uniqueEmails,
+			TotalLogins:       totalLogins,
 			IsActive:          g.IsActive.Bool,
 			ExpiresAt:         g.ExpiresAt.Time.Format("02 Jan 2006 15:04"),
 			CreatedAt:         g.CreatedAt.Time.Format("02 Jan 2006"),
@@ -594,6 +739,7 @@ func (h *AdminHandler) RevokeGuestCode(c *gin.Context) {
 		return
 	}
 	cnt, _ := h.queries.CountGuestCodeLogins(c.Request.Context(), gid)
+	totalLogins, _ := h.queries.SumGuestCodeLogins(c.Request.Context(), gid)
 
 	row := guestCodeRow{
 		ID:                uuidStr(gc.ID),
@@ -601,7 +747,8 @@ func (h *AdminHandler) RevokeGuestCode(c *gin.Context) {
 		ProductID:         gc.ProductID.String,
 		Label:             gc.Label.String,
 		MaxLoginsPerEmail: gc.MaxLoginsPerEmail.Int32,
-		TotalLogins:       cnt,
+		UniqueEmails:      cnt,
+		TotalLogins:       totalLogins,
 		IsActive:          gc.IsActive.Bool,
 		ExpiresAt:         gc.ExpiresAt.Time.Format("02 Jan 2006 15:04"),
 	}
@@ -612,7 +759,7 @@ func (h *AdminHandler) RevokeGuestCode(c *gin.Context) {
 		<td>`+row.Label+`</td>
 		<td>`+row.ProductID+`</td>
 		<td>`+fmt.Sprintf("%d", row.MaxLoginsPerEmail)+`</td>
-		<td>`+fmt.Sprintf("%d", row.TotalLogins)+`</td>
+		<td>`+fmt.Sprintf("%d emails · %d logins", row.UniqueEmails, row.TotalLogins)+`</td>
 		<td><span class="badge bg-red">Revoked</span></td>
 		<td>`+row.ExpiresAt+`</td>
 		<td>
@@ -1127,6 +1274,36 @@ func parseUUID(s string) pgtype.UUID {
 	var u pgtype.UUID
 	u.Scan(s)
 	return u
+}
+
+func containsCI(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
+// resolveIPLocation uses free ip-api.com to get city+country from IP.
+func resolveIPLocation(ip string) string {
+	if ip == "" || ip == "127.0.0.1" || ip == "::1" {
+		return "Localhost"
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://ip-api.com/json/" + ip + "?fields=status,city,country")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Status  string `json:"status"`
+		City    string `json:"city"`
+		Country string `json:"country"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil || result.Status != "success" {
+		return ""
+	}
+	if result.City != "" {
+		return result.City + ", " + result.Country
+	}
+	return result.Country
 }
 
 func generateGuestCode() string {

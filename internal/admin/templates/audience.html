@@ -1,0 +1,189 @@
+{{define "content"}}
+<!-- Stats summary -->
+<div id="audience-stats" class="row row-deck row-cards mb-3">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="subheader">Total Audience</div>
+                <div class="h1 mb-0">{{.Stats.Total}}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="subheader">Guests</div>
+                <div class="h1 mb-0">{{.Stats.Guests}}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="subheader">Subscribers</div>
+                <div class="h1 mb-0">{{.Stats.Subscribers}}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="subheader">Total Revenue</div>
+                <div class="h1 mb-0">Rp {{.Stats.Revenue}}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-eye me-2"></i>All Audience</h3>
+        <div class="card-actions">
+            <div class="input-group input-group-sm" style="width:380px">
+                <input type="text" class="form-control" placeholder="Search by email..." name="q"
+                    hx-get="/admin/audience" hx-target="#audience-content" hx-select="#audience-content"
+                    hx-trigger="keyup changed delay:300ms" hx-swap="outerHTML" hx-include="[name='type']"
+                    value="{{.Query}}">
+                <select name="type" class="form-select" style="max-width:140px" hx-get="/admin/audience"
+                    hx-target="#audience-content" hx-select="#audience-content" hx-trigger="change" hx-swap="outerHTML"
+                    hx-include="[name='q']">
+                    <option value="">All Types</option>
+                    <option value="guest" {{if eq .TypeFilter "guest" }}selected{{end}}>Guest</option>
+                    <option value="subscriber" {{if eq .TypeFilter "subscriber" }}selected{{end}}>Subscriber</option>
+                    <option value="admin" {{if eq .TypeFilter "admin" }}selected{{end}}>Admin</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div id="audience-content">
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table table-striped">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Type</th>
+                        <th>Source</th>
+                        <th>Guest Code</th>
+                        <th>Logins</th>
+                        <th>Paid</th>
+                        <th>Location</th>
+                        <th>Last Active</th>
+                    </tr>
+                </thead>
+                <tbody id="audience-rows">
+                    {{range .Audience}}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <span class="avatar avatar-xs me-2 rounded"
+                                    style="background-image: url(https://ui-avatars.com/api/?name={{.Email}}&background=206bc4&color=fff&size=32)"></span>
+                                {{.Email}}
+                            </div>
+                        </td>
+                        <td>
+                            {{if eq .UserType "guest"}}<span class="badge bg-cyan">Guest</span>
+                            {{else if eq .UserType "subscriber"}}<span class="badge bg-green">Subscriber</span>
+                            {{else if eq .UserType "admin"}}<span class="badge bg-purple">Admin</span>
+                            {{else}}<span class="badge bg-blue-lt">{{.UserType}}</span>{{end}}
+                        </td>
+                        <td>
+                            {{if .ReferralSource}}
+                            <span class="badge bg-blue-lt">{{.ReferralSource}}</span>
+                            {{else}}<span class="text-muted">—</span>{{end}}
+                        </td>
+                        <td>
+                            {{if .GuestCode}}<code>{{.GuestCode}}</code>
+                            {{else}}<span class="text-muted">—</span>{{end}}
+                        </td>
+                        <td>{{.TotalLogins}}</td>
+                        <td>
+                            {{if ne .AmountPaid "0"}}<span class="text-green fw-bold">Rp {{.AmountPaid}}</span>
+                            {{else}}<span class="text-muted">—</span>{{end}}
+                        </td>
+                        <td>
+                            {{if .Location}}<i class="ti ti-map-pin me-1"></i>{{.Location}}
+                            {{else}}<span class="text-muted">—</span>{{end}}
+                        </td>
+                        <td>{{.LastActive}}</td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="8" class="text-muted text-center">No audience found</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{if .HasMore}}
+        <div class="card-footer text-center" id="load-more-wrapper">
+            <button class="btn btn-outline-primary btn-sm"
+                hx-get="/admin/audience?page={{.NextPage}}&q={{.Query}}&type={{.TypeFilter}}&partial=1"
+                hx-target="#audience-rows" hx-swap="beforeend" hx-indicator="#load-spinner"
+                hx-on::after-request="this.closest('#load-more-wrapper').remove()">
+                <span id="load-spinner" class="htmx-indicator spinner-border spinner-border-sm me-1"></span>
+                Load More
+            </button>
+            <div class="text-muted small mt-1">Showing {{.Shown}} of {{.Total}}</div>
+        </div>
+        {{else}}
+        {{if gt .Total 0}}
+        <div class="card-footer text-center">
+            <span class="text-muted small">All {{.Total}} results shown</span>
+        </div>
+        {{end}}
+        {{end}}
+    </div>
+</div>
+{{end}}
+
+{{define "audience-rows"}}
+{{range .Audience}}
+<tr>
+    <td>
+        <div class="d-flex align-items-center">
+            <span class="avatar avatar-xs me-2 rounded"
+                style="background-image: url(https://ui-avatars.com/api/?name={{.Email}}&background=206bc4&color=fff&size=32)"></span>
+            {{.Email}}
+        </div>
+    </td>
+    <td>
+        {{if eq .UserType "guest"}}<span class="badge bg-cyan">Guest</span>
+        {{else if eq .UserType "subscriber"}}<span class="badge bg-green">Subscriber</span>
+        {{else if eq .UserType "admin"}}<span class="badge bg-purple">Admin</span>
+        {{else}}<span class="badge bg-blue-lt">{{.UserType}}</span>{{end}}
+    </td>
+    <td>
+        {{if .ReferralSource}}
+        <span class="badge bg-blue-lt">{{.ReferralSource}}</span>
+        {{else}}<span class="text-muted">—</span>{{end}}
+    </td>
+    <td>
+        {{if .GuestCode}}<code>{{.GuestCode}}</code>
+        {{else}}<span class="text-muted">—</span>{{end}}
+    </td>
+    <td>{{.TotalLogins}}</td>
+    <td>
+        {{if ne .AmountPaid "0"}}<span class="text-green fw-bold">Rp {{.AmountPaid}}</span>
+        {{else}}<span class="text-muted">—</span>{{end}}
+    </td>
+    <td>
+        {{if .Location}}<i class="ti ti-map-pin me-1"></i>{{.Location}}
+        {{else}}<span class="text-muted">—</span>{{end}}
+    </td>
+    <td>{{.LastActive}}</td>
+</tr>
+{{end}}
+{{if .HasMore}}
+<tr id="load-more-row">
+    <td colspan="8" class="text-center p-2">
+        <button class="btn btn-outline-primary btn-sm"
+            hx-get="/admin/audience?page={{.NextPage}}&q={{.Query}}&type={{.TypeFilter}}&partial=1"
+            hx-target="#audience-rows" hx-swap="beforeend" hx-indicator="#load-spinner-{{.Page}}"
+            hx-on::before-request="document.getElementById('load-more-row').remove()">
+            <span id="load-spinner-{{.Page}}" class="htmx-indicator spinner-border spinner-border-sm me-1"></span>
+            Load More ({{.Shown}}/{{.Total}})
+        </button>
+    </td>
+</tr>
+{{end}}
+{{end}}

@@ -150,6 +150,7 @@ func main() {
 		protected.Use(adminDash.AdminAuthMiddleware())
 		{
 			protected.GET("/", adminDash.Dashboard)
+			protected.GET("/audience", adminDash.Audience)
 			protected.GET("/users", adminDash.Users)
 			protected.GET("/users/:id", adminDash.UserDetail)
 			protected.POST("/users/:id/lock", adminDash.LockUser)

@@ -69,6 +69,12 @@
                 <span class="nav-link-title">Users</span>
               </a>
             </li>
+            <li class="nav-item{{if eq .Active " audience"}} active{{end}}">
+              <a class="nav-link" href="/admin/audience">
+                <span class="nav-link-icon"><i class="ti ti-eye"></i></span>
+                <span class="nav-link-title">Audience</span>
+              </a>
+            </li>
             <li class="nav-item{{if eq .Active " subscriptions"}} active{{end}}">
               <a class="nav-link" href="/admin/subscriptions">
                 <span class="nav-link-icon"><i class="ti ti-credit-card"></i></span>

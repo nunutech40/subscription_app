@@ -58,6 +58,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) error
+	ListAllAudience(ctx context.Context, arg ListAllAudienceParams) ([]ListAllAudienceRow, error)
 	ListAllPricingPlans(ctx context.Context) ([]PricingPlan, error)
 	ListAllProducts(ctx context.Context) ([]Product, error)
 	ListAllSubscriptions(ctx context.Context, arg ListAllSubscriptionsParams) ([]ListAllSubscriptionsRow, error)
@@ -88,6 +89,7 @@ type Querier interface {
 	SearchUsersByRole(ctx context.Context, arg SearchUsersByRoleParams) ([]User, error)
 	SetUserActive(ctx context.Context, arg SetUserActiveParams) error
 	SetXenditInvoiceID(ctx context.Context, arg SetXenditInvoiceIDParams) error
+	SumGuestCodeLogins(ctx context.Context, guestCodeID pgtype.UUID) (int64, error)
 	TogglePricingPlanActive(ctx context.Context, id pgtype.UUID) error
 	ToggleProductActive(ctx context.Context, id string) error
 	UpdateConfig(ctx context.Context, arg UpdateConfigParams) error
