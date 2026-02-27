@@ -173,6 +173,9 @@ func main() {
 			protected.PUT("/products/:id", adminDash.UpdateProduct)
 			protected.POST("/products/:id/toggle", adminDash.ToggleProductActive)
 			protected.GET("/audit", adminDash.AuditLogs)
+			protected.GET("/feedback", adminDash.Feedback)
+			protected.POST("/feedback/:id/read", adminDash.MarkFeedbackRead)
+			protected.POST("/feedback/mark-all-read", adminDash.MarkAllFeedbackRead)
 		}
 	}
 

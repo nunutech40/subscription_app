@@ -123,6 +123,12 @@
                 <span class="nav-link-title">Audit Logs</span>
               </a>
             </li>
+            <li class="nav-item{{if eq .Active " feedback"}} active{{end}}">
+              <a class="nav-link" href="/admin/feedback">
+                <span class="nav-link-icon"><i class="ti ti-message-dots"></i></span>
+                <span class="nav-link-title">Feedback</span>
+              </a>
+            </li>
             <li class="nav-item mt-auto border-top pt-2">
               <a class="nav-link text-danger" href="/admin/logout">
                 <span class="nav-link-icon"><i class="ti ti-logout"></i></span>

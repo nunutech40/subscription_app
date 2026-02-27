@@ -25,6 +25,7 @@ var templateFS embed.FS
 //   - pricing_handler.go         → Pricing(), UpdatePriceInline(), TogglePlanActive()
 //   - revenue_handler.go         → Revenue()
 //   - anomaly_handler.go         → Anomalies()
+//   - feedback_handler.go        → Feedback(), MarkFeedbackRead(), MarkAllFeedbackRead()
 //   - settings_product_audit_handler.go → Settings(), Products(), AuditLogs()
 //   - admin_auth_handler.go      → AdminAuthMiddleware(), LoginPage(), LoginPost(), Logout()
 //   - helpers.go                 → formatIDR(), uuidStr(), parseUUID(), containsCI(), etc.

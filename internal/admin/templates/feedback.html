@@ -1,0 +1,209 @@
+{{define "content"}}
+<div class="container-xl">
+    <div class="page-header d-print-none mb-4">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <span class="text-muted small text-uppercase">SAINS Admin Panel</span>
+                <h2 class="page-title">Feedback Inbox</h2>
+            </div>
+            <div class="col-auto ms-auto">
+                <form method="POST" action="/admin/feedback/mark-all-read">
+                    <button type="submit" class="btn btn-outline-success btn-sm">
+                        <i class="ti ti-checks me-1"></i>Tandai Semua Dibaca
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row row-deck row-cards mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <span class="bg-primary text-white avatar"><i class="ti ti-message-dots"></i></span>
+                        </div>
+                        <div class="col">
+                            <div class="font-weight-medium">Total Feedback</div>
+                            <div class="text-muted">{{.Stats.Total}} total</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <span class="bg-warning text-white avatar"><i class="ti ti-bell"></i></span>
+                        </div>
+                        <div class="col">
+                            <div class="font-weight-medium">Belum Dibaca</div>
+                            <div class="text-muted">{{.Stats.Unread}} unread</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <span class="bg-success text-white avatar"><i class="ti ti-star"></i></span>
+                        </div>
+                        <div class="col">
+                            <div class="font-weight-medium">Avg Rating</div>
+                            <div class="text-muted">{{.AvgRating}} / 5</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <span class="bg-danger text-white avatar"><i class="ti ti-bug"></i></span>
+                        </div>
+                        <div class="col">
+                            <div class="font-weight-medium">Bug Reports</div>
+                            <div class="text-muted">{{.Stats.BugCount}} laporan</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs">
+                <li class="nav-item">
+                    <a class="nav-link{{if eq .Filter " all"}} active{{end}}" href="/admin/feedback">
+                        <i class="ti ti-inbox me-1"></i>Semua
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{{if eq .Filter " unread"}} active{{end}}" href="/admin/feedback?filter=unread">
+                        <i class="ti ti-bell me-1"></i>Belum Dibaca
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{{if eq .Category " saran"}} active{{end}}" href="/admin/feedback?category=saran">
+                        <i class="ti ti-bulb me-1"></i>Saran
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{{if eq .Category " bug"}} active{{end}}" href="/admin/feedback?category=bug">
+                        <i class="ti ti-bug me-1"></i>Bug
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link{{if eq .Category " pertanyaan"}} active{{end}}"
+                        href="/admin/feedback?category=pertanyaan">
+                        <i class="ti ti-help me-1"></i>Pertanyaan
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Feedback Table -->
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table table-striped">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Pengirim</th>
+                        <th>Kategori</th>
+                        <th>Rating</th>
+                        <th>Pesan</th>
+                        <th>Halaman</th>
+                        <th>Waktu</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .Feedbacks}}
+                    {{range .Feedbacks}}
+                    <tr{{if not .IsRead}} style="background: rgba(251, 191, 36, 0.04);" {{end}}>
+                        <td id="status-{{.ID}}">
+                            {{if .IsRead}}
+                            <span class="badge bg-success">Read</span>
+                            {{else}}
+                            <span class="badge bg-warning">New</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{.Email}}</div>
+                            <div class="text-muted small">{{.Role}}</div>
+                        </td>
+                        <td>
+                            {{if eq .Category "saran"}}
+                            <span class="badge bg-blue-lt">💡 Saran</span>
+                            {{else if eq .Category "bug"}}
+                            <span class="badge bg-red-lt">🐛 Bug</span>
+                            {{else if eq .Category "pertanyaan"}}
+                            <span class="badge bg-purple-lt">❓ Pertanyaan</span>
+                            {{else}}
+                            <span class="badge bg-secondary-lt">{{.Category}}</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if gt .Rating 0}}
+                            {{if ge .Rating 4}}
+                            <span class="text-success fw-bold">{{.Rating}}/5 ⭐</span>
+                            {{else if ge .Rating 3}}
+                            <span class="text-warning fw-bold">{{.Rating}}/5</span>
+                            {{else}}
+                            <span class="text-danger fw-bold">{{.Rating}}/5</span>
+                            {{end}}
+                            {{else}}
+                            <span class="text-muted">—</span>
+                            {{end}}
+                        </td>
+                        <td style="max-width: 300px;">
+                            <div class="text-wrap" style="white-space: pre-wrap; word-break: break-word;">{{.Message}}
+                            </div>
+                        </td>
+                        <td>
+                            {{if .PageURL}}
+                            <a href="{{.PageURL}}" target="_blank" class="text-muted small" title="{{.PageURL}}">
+                                <i class="ti ti-external-link me-1"></i>Link
+                            </a>
+                            {{else}}
+                            <span class="text-muted">—</span>
+                            {{end}}
+                        </td>
+                        <td>
+                            <span class="text-muted small">{{.CreatedAt}}</span>
+                        </td>
+                        <td>
+                            {{if not .IsRead}}
+                            <button class="btn btn-sm btn-outline-success" hx-post="/admin/feedback/{{.ID}}/read"
+                                hx-target="#status-{{.ID}}" hx-swap="innerHTML" title="Tandai dibaca">
+                                <i class="ti ti-check"></i>
+                            </button>
+                            {{end}}
+                        </td>
+                        </tr>
+                        {{end}}
+                        {{else}}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="ti ti-mood-happy" style="font-size: 2rem;"></i>
+                                <p class="mt-2">Belum ada feedback. Inbox kosong! 🎉</p>
+                            </td>
+                        </tr>
+                        {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
