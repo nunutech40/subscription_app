@@ -303,6 +303,63 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 		return
 	}
 
+	// 3b. Check if OTP is enabled (default: true)
+	otpEnabled := true
+	if cfg, cfgErr := h.queries.GetConfig(ctx, "guest_otp_enabled"); cfgErr == nil {
+		otpEnabled = cfg.Value != "false"
+	}
+
+	// ── OTP DISABLED: direct login (skip OTP) ──
+	if !otpEnabled {
+		// Upsert guest login (increment count + track IP)
+		clientIP := parseIP(c.ClientIP())
+		_, _ = h.queries.UpsertGuestLogin(ctx, repository.UpsertGuestLoginParams{
+			GuestCodeID:    guestCode.ID,
+			Email:          req.Email,
+			ReferralSource: pgtype.Text{String: req.ReferralSource, Valid: req.ReferralSource != ""},
+			IpAddress:      clientIP,
+		})
+
+		// Generate access token
+		accessToken, tokenErr := h.tokenService.GenerateAccessToken(
+			"guest:"+uuidToString(guestCode.ID),
+			req.Email,
+			"guest",
+		)
+		if tokenErr != nil {
+			RespondInternalError(c)
+			return
+		}
+
+		// Create session (24 hours)
+		refreshToken := service.GenerateRefreshToken()
+		refreshHash, _ := service.HashRefreshToken(refreshToken)
+		_, _ = h.queries.CreateSession(ctx, repository.CreateSessionParams{
+			GuestCodeID:      guestCode.ID,
+			GuestEmail:       pgtype.Text{String: req.Email, Valid: true},
+			RefreshTokenHash: refreshHash,
+			IpAtLogin:        clientIP,
+			UserAgent:        pgtype.Text{String: c.GetHeader("User-Agent"), Valid: true},
+			ExpiresAt: pgtype.Timestamptz{
+				Time:  time.Now().Add(24 * time.Hour),
+				Valid: true,
+			},
+		})
+
+		c.SetCookie("refresh_token", refreshToken, 24*60*60, "/api/auth", "", true, true)
+
+		RespondSuccess(c, http.StatusOK, gin.H{
+			"otp_required": false,
+			"access_token": accessToken,
+			"expires_in":   3600,
+			"role":         "guest",
+			"product":      guestCode.ProductID.String,
+		}, "Login sebagai guest berhasil")
+		return
+	}
+
+	// ── OTP ENABLED (default): send OTP to email ──
+
 	// 4. Rate limit OTP requests (max 3 per 10 min per email)
 	recentCount, _ := h.queries.CountRecentOTPs(ctx, req.Email)
 	if recentCount >= 3 {
@@ -346,6 +403,7 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 	}()
 
 	RespondSuccess(c, http.StatusOK, gin.H{
+		"otp_required":         true,
 		"pending_verification": true,
 		"email":                maskEmail(req.Email),
 		"expires_in":           300, // 5 minutes
