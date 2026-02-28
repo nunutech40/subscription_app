@@ -341,6 +341,33 @@ Port 465/587 sudah dibuka oleh IDCloudHost + DomainNesia whitelist IP VPS.
 - SMTP_HOST harus pakai `mx2.mailspace.id` (bukan `mail.sains-atomic.web.id`) karena SSL cert terdaftar atas nama `mx2.mailspace.id`
 - Kalau pakai `mail.sains-atomic.web.id` akan error: `x509: certificate is valid for mx2.mailspace.id`
 - Email terkirim dari `noreply@sains-atomic.web.id` via port 465 (SSL)
+- **HARUS** ada header `Date` dan `Message-ID` di email, tanpa ini Gmail drop email tanpa jejak
+- SMTP dial punya timeout 15 detik + 30 detik deadline agar goroutine tidak hang jika port blocked
+- DomainNesia punya rate limiting — jangan spam SMTP connection, bisa kena temporary block
+
+### ⚠️ DNS — Catatan Penting
+- **DMARC**: `_dmarc.sains-atomic.web.id` → `v=DMARC1; p=none; ...`
+  - ❌ JANGAN pakai `p=reject` sampai SPF/DKIM 100% verified, Gmail akan buang email tanpa bekas
+  - ✅ Pakai `p=none` dulu untuk monitoring
+- **SPF**: `v=spf1 a mx include:relay.mailchannels.net ~all` (DomainNesia pakai MailChannels relay)
+- **DKIM**: Sudah configured via `default._domainkey` TXT record
+
+### 🚀 Deployment Paths (PENTING!)
+| Komponen | Path di VPS | Nginx Config |
+|----------|-------------|--------------|
+| **API** | `/home/nunuadmin/sains-api/sains-api` | reverse proxy :8080 |
+| **Atomic App** | `/home/nunuadmin/sains-atomic-app/` | `sains-atomic-app` |
+| **Landing Page** | `/home/nunuadmin/sains-landing/` | `sains-atomic` |
+
+⚠️ Hati-hati: `sains-atomic` dan `sains-atomic-app` adalah folder BERBEDA!
+- `sains-atomic-app` → `app.sains-atomic.web.id` (Atomic App)
+- `sains-landing` → `sains-atomic.web.id` (Landing Page)
+
+### 🧹 Cloudflare Cache
+Setelah deploy atomic app, **WAJIB** purge Cloudflare cache:
+1. Buka `dash.cloudflare.com` → domain `sains-atomic.web.id`
+2. **Caching** → **Configuration** → **Purge Everything**
+Tanpa purge, user akan tetap load JS bundle lama.
 
 ### 👤 Admin Login
 | Setting | Value |
@@ -371,5 +398,10 @@ Port 465/587 sudah dibuka oleh IDCloudHost + DomainNesia whitelist IP VPS.
 - [x] GitHub repos up-to-date
 - [x] Email account created (`noreply@sains-atomic.web.id`)
 - [x] SMTP port unblocked ✅ (IDCloudHost + DomainNesia whitelist)
+- [x] Email OTP working ✅ (Date + Message-ID headers added)
+- [x] DMARC fixed ✅ (p=none, was p=reject causing Gmail drops)
+- [x] SMTP timeout ✅ (15s dial + 30s deadline, no more goroutine hangs)
+- [x] Onboarding flow working ✅ (hash check fix + correct deploy path)
 - [ ] Midtrans keys configured
 - [ ] Midtrans webhook URL set
+
