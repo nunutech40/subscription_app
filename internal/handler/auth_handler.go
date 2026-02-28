@@ -164,7 +164,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Check anomaly before revoking (needs old session data)
-	go h.anomalyService.CheckLoginAnomaly(context.Background(), result.User.ID, c.ClientIP(), c.GetHeader("User-Agent"))
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		h.anomalyService.CheckLoginAnomaly(ctx, result.User.ID, c.ClientIP(), c.GetHeader("User-Agent"))
+	}()
 
 	// Revoke existing sessions (single session rule)
 	_ = h.queries.RevokeAllUserSessions(c.Request.Context(), result.User.ID)
@@ -324,16 +328,22 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 		return
 	}
 
-	// 7. Send OTP email
+	// 7. Send OTP email (with 30s timeout to prevent goroutine leak)
 	go func() {
-		emailErr := h.emailService.SendGuestOTPEmail(context.Background(), req.Email, otpCode)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		emailErr := h.emailService.SendGuestOTPEmail(ctx, req.Email, otpCode)
 		if emailErr != nil {
 			log.Printf("send OTP email error: %v", emailErr)
 		}
 	}()
 
-	// 8. Cleanup expired OTPs in background
-	go func() { _ = h.queries.CleanExpiredOTPs(context.Background()) }()
+	// 8. Cleanup expired OTPs in background (with 5s timeout)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = h.queries.CleanExpiredOTPs(ctx)
+	}()
 
 	RespondSuccess(c, http.StatusOK, gin.H{
 		"pending_verification": true,
