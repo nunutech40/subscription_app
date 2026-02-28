@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -76,13 +77,20 @@ func (s *EmailService) SendEmail(ctx context.Context, input SendEmailInput) erro
 	}
 }
 
-// sendViaSMTP sends email via Gmail SMTP (or any SMTP server).
+// sendViaSMTP sends email via SMTP server.
 func (s *EmailService) sendViaSMTP(input SendEmailInput) error {
-	// Build MIME message
+	// Generate Message-ID
+	randBytes := make([]byte, 16)
+	rand.Read(randBytes)
+	messageID := fmt.Sprintf("<%x@sains-atomic.web.id>", randBytes)
+
+	// Build MIME message with proper headers
 	var msg strings.Builder
 	msg.WriteString("From: " + s.fromEmail + "\r\n")
 	msg.WriteString("To: " + input.To + "\r\n")
 	msg.WriteString("Subject: " + input.Subject + "\r\n")
+	msg.WriteString("Date: " + time.Now().Format(time.RFC1123Z) + "\r\n")
+	msg.WriteString("Message-ID: " + messageID + "\r\n")
 	msg.WriteString("MIME-Version: 1.0\r\n")
 	msg.WriteString("Content-Type: text/html; charset=\"utf-8\"\r\n")
 	msg.WriteString("\r\n")
