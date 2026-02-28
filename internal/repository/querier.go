@@ -41,7 +41,7 @@ type Querier interface {
 	GetActiveSubscription(ctx context.Context, arg GetActiveSubscriptionParams) (Subscription, error)
 	GetConfig(ctx context.Context, key string) (SystemConfig, error)
 	GetFeedbackStats(ctx context.Context) (GetFeedbackStatsRow, error)
-	GetGuestCodeByCode(ctx context.Context, code string) (GuestCode, error)
+	GetGuestCodeByCode(ctx context.Context, upper interface{}) (GuestCode, error)
 	GetGuestCodeByID(ctx context.Context, id pgtype.UUID) (GuestCode, error)
 	GetGuestLogin(ctx context.Context, arg GetGuestLoginParams) (GuestLogin, error)
 	GetMonthlyRevenue(ctx context.Context) ([]GetMonthlyRevenueRow, error)

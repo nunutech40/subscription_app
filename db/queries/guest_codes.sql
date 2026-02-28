@@ -4,7 +4,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: GetGuestCodeByCode :one
-SELECT * FROM guest_codes WHERE code = $1 AND is_active = TRUE;
+SELECT * FROM guest_codes WHERE UPPER(code) = UPPER($1) AND is_active = TRUE;
 
 -- name: GetGuestCodeByID :one
 SELECT * FROM guest_codes WHERE id = $1;

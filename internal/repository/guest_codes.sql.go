@@ -81,11 +81,11 @@ func (q *Queries) DeleteGuestCode(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getGuestCodeByCode = `-- name: GetGuestCodeByCode :one
-SELECT id, code, product_id, label, max_logins_per_email, expires_at, is_active, generated_by, created_at FROM guest_codes WHERE code = $1 AND is_active = TRUE
+SELECT id, code, product_id, label, max_logins_per_email, expires_at, is_active, generated_by, created_at FROM guest_codes WHERE UPPER(code) = UPPER($1) AND is_active = TRUE
 `
 
-func (q *Queries) GetGuestCodeByCode(ctx context.Context, code string) (GuestCode, error) {
-	row := q.db.QueryRow(ctx, getGuestCodeByCode, code)
+func (q *Queries) GetGuestCodeByCode(ctx context.Context, upper interface{}) (GuestCode, error) {
+	row := q.db.QueryRow(ctx, getGuestCodeByCode, upper)
 	var i GuestCode
 	err := row.Scan(
 		&i.ID,
