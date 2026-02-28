@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/smtp"
 	"strings"
@@ -114,13 +115,24 @@ func (s *EmailService) sendViaSMTP(input SendEmailInput) error {
 	return nil
 }
 
-// sendSMTPWithTLS handles direct TLS connection (port 465).
+// sendSMTPWithTLS handles direct TLS connection (port 465) with timeout.
 func (s *EmailService) sendSMTPWithTLS(addr string, auth smtp.Auth, to, msg string) error {
 	tlsConfig := &tls.Config{ServerName: s.smtpHost}
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
+
+	// Use net.DialTimeout + tls.Client instead of tls.Dial to avoid hanging forever
+	dialer := &net.Dialer{Timeout: 15 * time.Second}
+	rawConn, err := dialer.Dial("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("tls dial failed: %w", err)
+		return fmt.Errorf("tcp dial failed (timeout 15s): %w", err)
 	}
+	conn := tls.Client(rawConn, tlsConfig)
+	if err := conn.Handshake(); err != nil {
+		rawConn.Close()
+		return fmt.Errorf("tls handshake failed: %w", err)
+	}
+
+	// Set read/write deadline so SMTP commands don't hang
+	conn.SetDeadline(time.Now().Add(30 * time.Second))
 
 	client, err := smtp.NewClient(conn, s.smtpHost)
 	if err != nil {
