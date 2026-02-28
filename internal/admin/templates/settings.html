@@ -3,7 +3,7 @@
     <div class="card-header">
         <h3 class="card-title"><i class="ti ti-settings me-2"></i>System Configuration</h3>
         <div class="card-actions">
-            <span class="text-muted"><i class="ti ti-info-circle me-1"></i>Click on value to edit inline</span>
+            <span class="text-muted"><i class="ti ti-info-circle me-1"></i>Toggle or click to edit</span>
         </div>
     </div>
     <div class="table-responsive">
@@ -21,6 +21,38 @@
                 <tr>
                     <td><code>{{.Key}}</code></td>
                     <td>
+                        {{if or (eq .Value "true") (eq .Value "false")}}
+                        <!-- Boolean toggle for true/false -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-check form-switch mb-0" style="padding-left: 2.5rem;">
+                                <input class="form-check-input" type="checkbox"
+                                    id="cfg-toggle-{{.Key}}"
+                                    {{if eq .Value "true"}}checked{{end}}
+                                    onchange="toggleBoolCfg('{{.Key}}', this.checked)">
+                                <span class="form-check-label" id="cfg-toggle-label-{{.Key}}"
+                                    style="font-weight: 600; color: {{if eq .Value "true"}}#2fb344{{else}}#d63939{{end}};">
+                                    {{if eq .Value "true"}}ON{{else}}OFF{{end}}
+                                </span>
+                            </label>
+                            <span id="cfg-toggle-status-{{.Key}}"></span>
+                        </div>
+                        {{else if or (eq .Value "on") (eq .Value "off")}}
+                        <!-- Boolean toggle for on/off -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-check form-switch mb-0" style="padding-left: 2.5rem;">
+                                <input class="form-check-input" type="checkbox"
+                                    id="cfg-toggle-{{.Key}}"
+                                    {{if eq .Value "on"}}checked{{end}}
+                                    onchange="toggleOnOffCfg('{{.Key}}', this.checked)">
+                                <span class="form-check-label" id="cfg-toggle-label-{{.Key}}"
+                                    style="font-weight: 600; color: {{if eq .Value "on"}}#2fb344{{else}}#d63939{{end}};">
+                                    {{if eq .Value "on"}}ON{{else}}OFF{{end}}
+                                </span>
+                            </label>
+                            <span id="cfg-toggle-status-{{.Key}}"></span>
+                        </div>
+                        {{else}}
+                        <!-- Text input for numeric/string values -->
                         <div id="cfg-display-{{.Key}}" class="d-flex align-items-center gap-2">
                             <strong id="cfg-text-{{.Key}}">{{.Value}}</strong>
                             <button class="btn btn-ghost-primary btn-sm btn-icon"
@@ -42,6 +74,7 @@
                             </form>
                             <div id="cfg-status-{{.Key}}" class="mt-1"></div>
                         </div>
+                        {{end}}
                     </td>
                     <td class="text-muted">{{.Description}}</td>
                     <td class="text-muted">{{.UpdatedAt}}</td>
@@ -65,6 +98,10 @@
         <div class="row">
             <div class="col-md-6">
                 <div class="mb-3">
+                    <strong><code>guest_otp_enabled</code></strong>
+                    <p class="text-muted mb-0">Toggle verifikasi OTP untuk guest login. <strong>ON</strong> = email + kode + OTP. <strong>OFF</strong> = email + kode saja (tanpa verifikasi email).</p>
+                </div>
+                <div class="mb-3">
                     <strong><code>max_subscribers</code></strong>
                     <p class="text-muted mb-0">Maksimal subscriber aktif secara bersamaan. Jika tercapai, user baru
                         tidak bisa subscribe.</p>
@@ -83,8 +120,8 @@
                 </div>
                 <div class="mb-3">
                     <strong><code>guest_priority_mode</code></strong>
-                    <p class="text-muted mb-0">Jika <code>on</code>, guest akan diblokir total saat subscriber kuota
-                        &gt;90%. Set <code>off</code> untuk mode normal.</p>
+                    <p class="text-muted mb-0">Jika <code>ON</code>, guest akan diblokir total saat subscriber kuota
+                        &gt;90%. Set <code>OFF</code> untuk mode normal.</p>
                 </div>
             </div>
         </div>
@@ -92,6 +129,55 @@
 </div>
 
 <script>
+    // ── Toggle for true/false configs ──
+    function toggleBoolCfg(key, isChecked) {
+        var value = isChecked ? 'true' : 'false';
+        var label = document.getElementById('cfg-toggle-label-' + key);
+        var status = document.getElementById('cfg-toggle-status-' + key);
+
+        label.textContent = isChecked ? 'ON' : 'OFF';
+        label.style.color = isChecked ? '#2fb344' : '#d63939';
+        status.innerHTML = '<span class="text-muted"><i class="ti ti-loader ti-spin"></i></span>';
+
+        saveCfgValue(key, value, status);
+    }
+
+    // ── Toggle for on/off configs ──
+    function toggleOnOffCfg(key, isChecked) {
+        var value = isChecked ? 'on' : 'off';
+        var label = document.getElementById('cfg-toggle-label-' + key);
+        var status = document.getElementById('cfg-toggle-status-' + key);
+
+        label.textContent = isChecked ? 'ON' : 'OFF';
+        label.style.color = isChecked ? '#2fb344' : '#d63939';
+        status.innerHTML = '<span class="text-muted"><i class="ti ti-loader ti-spin"></i></span>';
+
+        saveCfgValue(key, value, status);
+    }
+
+    // ── Save config value via API ──
+    function saveCfgValue(key, value, statusEl) {
+        var formData = new FormData();
+        formData.append('value', value);
+
+        fetch('/admin/settings/' + key, { method: 'PUT', body: formData })
+            .then(function(response) {
+                if (!response.ok) throw new Error('Failed');
+                statusEl.innerHTML = '<span class="text-success"><i class="ti ti-check"></i></span>';
+                setTimeout(function() { statusEl.innerHTML = ''; }, 2000);
+            })
+            .catch(function() {
+                statusEl.innerHTML = '<span class="text-danger"><i class="ti ti-x"></i> Error</span>';
+                // Revert toggle
+                var toggle = document.getElementById('cfg-toggle-' + key);
+                toggle.checked = !toggle.checked;
+                var label = document.getElementById('cfg-toggle-label-' + key);
+                label.textContent = toggle.checked ? 'ON' : 'OFF';
+                label.style.color = toggle.checked ? '#2fb344' : '#d63939';
+            });
+    }
+
+    // ── Text input edit (for numeric values) ──
     function startCfgEdit(key, currentValue) {
         document.getElementById('cfg-display-' + key).classList.add('d-none');
         document.getElementById('cfg-edit-' + key).classList.remove('d-none');
