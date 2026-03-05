@@ -28,6 +28,7 @@ type planDTO struct {
 	DurationDays int    `json:"duration_days"`
 	PriceIDR     int    `json:"price_idr"`
 	Label        string `json:"label"`
+	IsActive     bool   `json:"is_active"`
 }
 
 func toPlanDTO(p repository.PricingPlan) planDTO {
@@ -39,6 +40,7 @@ func toPlanDTO(p repository.PricingPlan) planDTO {
 		DurationDays: int(p.DurationDays),
 		PriceIDR:     int(p.PriceIdr),
 		Label:        p.Label.String,
+		IsActive:     p.IsActive.Bool,
 	}
 }
 
