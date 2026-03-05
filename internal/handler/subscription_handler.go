@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -106,7 +107,8 @@ func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 		return
 	}
 
-	// Create pending subscription
+	// Create pending subscription (expires_at calculated from plan duration)
+	expiry := time.Now().Add(time.Duration(plan.DurationDays) * 24 * time.Hour)
 	sub, err := h.queries.CreateSubscription(c.Request.Context(), repository.CreateSubscriptionParams{
 		UserID:        userID,
 		ProductID:     plan.ProductID,
@@ -114,7 +116,7 @@ func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 		Segment:       plan.Segment,
 		AmountPaidIdr: pgtype.Int4{Int32: plan.PriceIdr, Valid: true},
 		Status:        pgtype.Text{String: "pending", Valid: true},
-		ExpiresAt:     pgtype.Timestamptz{}, // will be set when paid
+		ExpiresAt:     pgtype.Timestamptz{Time: expiry, Valid: true},
 		UtmSource:     pgtype.Text{String: req.UtmSource, Valid: req.UtmSource != ""},
 	})
 	if err != nil {
@@ -187,17 +189,21 @@ func (h *SubscriptionHandler) MidtransWebhook(c *gin.Context) {
 			return
 		}
 
-		// Activate subscription
-		_ = h.queries.UpdateSubscriptionStatus(ctx, repository.UpdateSubscriptionStatusParams{
-			ID:     sub.ID,
-			Status: pgtype.Text{String: "active", Valid: true},
-		})
+		// Activate subscription: set starts_at=now(), expires_at=now()+duration_days
+		plan, planErr := h.queries.GetPricingPlan(ctx, sub.PlanID)
+		durationDays := "30" // fallback
+		if planErr == nil {
+			durationDays = strconv.Itoa(int(plan.DurationDays))
+		}
 
-		// Store Midtrans transaction ID in xendit_invoice_id column (reusing existing column)
-		_ = h.queries.SetXenditInvoiceID(ctx, repository.SetXenditInvoiceIDParams{
+		err = h.queries.ActivateSubscriptionFull(ctx, repository.ActivateSubscriptionFullParams{
 			ID:              sub.ID,
+			Column2:         pgtype.Text{String: durationDays, Valid: true},
 			XenditInvoiceID: pgtype.Text{String: notif.TransactionID, Valid: true},
 		})
+		if err != nil {
+			log.Printf("❌ Failed to activate subscription %s: %v", notif.OrderID, err)
+		}
 
 		// Activate the user account
 		_ = h.queries.SetUserActive(ctx, repository.SetUserActiveParams{

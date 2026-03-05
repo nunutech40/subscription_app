@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	ActivateSubscriptionByInvoice(ctx context.Context, arg ActivateSubscriptionByInvoiceParams) error
+	ActivateSubscriptionFull(ctx context.Context, arg ActivateSubscriptionFullParams) error
 	CleanExpiredOTPs(ctx context.Context) error
 	CleanExpiredSessions(ctx context.Context) error
 	CountActiveGuestSessions(ctx context.Context) (int64, error)

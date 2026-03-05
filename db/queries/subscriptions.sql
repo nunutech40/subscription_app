@@ -27,6 +27,13 @@ UPDATE subscriptions
 SET status = 'active', paid_at = now(), starts_at = now(), xendit_payment_id = $2
 WHERE xendit_invoice_id = $1;
 
+-- name: ActivateSubscriptionFull :exec
+UPDATE subscriptions
+SET status = 'active', paid_at = now(), starts_at = now(),
+    expires_at = now() + ($2 || ' days')::interval,
+    xendit_invoice_id = $3
+WHERE id = $1;
+
 -- name: CountActiveSubscriptions :one
 SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > now();
 

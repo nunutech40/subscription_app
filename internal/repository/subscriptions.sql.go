@@ -27,6 +27,25 @@ func (q *Queries) ActivateSubscriptionByInvoice(ctx context.Context, arg Activat
 	return err
 }
 
+const activateSubscriptionFull = `-- name: ActivateSubscriptionFull :exec
+UPDATE subscriptions
+SET status = 'active', paid_at = now(), starts_at = now(),
+    expires_at = now() + ($2 || ' days')::interval,
+    xendit_invoice_id = $3
+WHERE id = $1
+`
+
+type ActivateSubscriptionFullParams struct {
+	ID              pgtype.UUID `json:"id"`
+	Column2         pgtype.Text `json:"column_2"`
+	XenditInvoiceID pgtype.Text `json:"xendit_invoice_id"`
+}
+
+func (q *Queries) ActivateSubscriptionFull(ctx context.Context, arg ActivateSubscriptionFullParams) error {
+	_, err := q.db.Exec(ctx, activateSubscriptionFull, arg.ID, arg.Column2, arg.XenditInvoiceID)
+	return err
+}
+
 const countActiveSubscriptions = `-- name: CountActiveSubscriptions :one
 SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND expires_at > now()
 `
