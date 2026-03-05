@@ -108,7 +108,7 @@ api/
 │       ├── token_service.go
 │       ├── email_service.go
 │       ├── anomaly_service.go
-│       └── xendit_service.go
+│       └── midtrans_service.go
 │
 ├── sqlc.yaml
 ├── Makefile
@@ -196,7 +196,7 @@ Public API (handler/*.go)        Admin Panel (admin/*.go)
   └── TokenService                 └── AuthService (login only)
   └── EmailService                 └── TokenService (login only)
   └── AnomalyService               └── AuditLogger
-  └── XenditService
+  └── MidtransService
   └── Queries
 
 These two surfaces share NO cross-references.
