@@ -12,7 +12,7 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 
 **Tujuan utama:**
 1. Menyediakan **auth system** yang aman dengan JWT + single session rule
-2. Mengelola **subscription & payment** via Xendit secara otomatis
+2. Mengelola **subscription & payment** via Midtrans secara otomatis
 3. Memberikan **guest access** melalui guest code system yang viral-friendly
 4. Menyediakan **admin dashboard** untuk monitoring dan manajemen real-time
 5. Mendeteksi dan mencegah **account sharing** dengan anomaly scoring
@@ -23,7 +23,7 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 
 ### 2.1 End User (Subscriber)
 - Pelajar SMA/mahasiswa yang berlangganan produk SAINS
-- Mendaftar via email → bayar via Xendit → akses konten
+- Mendaftar via email → bayar via Midtrans → akses konten
 - **Batasan:** 1 session aktif per akun (anti account sharing)
 
 ### 2.2 Guest User
@@ -58,12 +58,12 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 | Requirement | Detail | Status |
 |-------------|--------|--------|
 | Pricing Plans | Multi-segment pricing (global/student/parent) × durasi | ✅ |
-| Checkout | Create Xendit invoice → redirect ke payment page | ✅ |
-| Webhook | Terima callback Xendit → activate subscription | ✅ |
+| Checkout | Create Midtrans Snap transaction → redirect ke payment page | ✅ |
+| Webhook | Terima callback Midtrans → activate subscription | ✅ |
 | Access Check | Cek apakah user punya langganan aktif per produk | ✅ |
 | Admin Access | Admin bypass subscription check — akses langsung ke Atomic | ✅ |
 | Quota Control | Max subscriber + max guest (configurable via DB) | ✅ |
-| Email | Welcome email + OTP email + renewal reminder via Resend | ✅ |
+| Email | Welcome email + OTP email + renewal reminder via DomainNesia SMTP | ✅ |
 
 ### 3.3 Guest Code System ✅
 
@@ -145,7 +145,7 @@ SAINS adalah **platform multi-produk pembelajaran sains**. Atomic adalah produk 
 
 ### 5.1 Subscriber Flow
 ```
-Register → Login → Checkout → Bayar (Xendit) → Webhook activates subscription → Access content
+Register → Login → Checkout → Bayar (Midtrans) → Webhook activates subscription → Access content
 ```
 
 ### 5.2 Guest Flow (dengan OTP)
@@ -172,7 +172,7 @@ Login via Atomic (subscriber mode) → AccessCheck bypasses subscription → Ful
 |--------|--------|-------------|
 | Uptime | > 99.5% | Health check monitoring |
 | Auth Latency | < 100ms | JWT verification time |
-| Payment Success | > 95% | Xendit webhook success rate |
+| Payment Success | > 95% | Midtrans webhook success rate |
 | Guest Conversion | > 10% | Guest → subscriber conversion |
 | Account Sharing | < 5% | Anomaly flagged accounts |
 
@@ -182,9 +182,9 @@ Login via Atomic (subscriber mode) → AccessCheck bypasses subscription → Ful
 
 | Dependency | Purpose | Status |
 |------------|---------|--------|
-| Supabase Postgres | Primary database | ✅ Active |
-| Xendit | Payment gateway (Indonesia) | ✅ Integrated |
-| Resend | Transactional email | ✅ Integrated |
+| PostgreSQL (lokal) | Primary database (IDCloudHost VPS) | ✅ Active |
+| Midtrans | Payment gateway (Indonesia) — Snap API | ✅ Integrated |
+| DomainNesia SMTP | Transactional email (mx2.mailspace.id) | ✅ Integrated |
 | Tabler CSS | Admin dashboard UI framework | ✅ CDN |
 | HTMX | Admin dashboard interactivity | ✅ CDN |
 
@@ -194,7 +194,7 @@ Login via Atomic (subscriber mode) → AccessCheck bypasses subscription → Ful
 
 ```
 Phase BE-1: Foundation        ✅  Auth, JWT, sessions, migrations
-Phase BE-2: Subscription      ✅  Xendit, checkout, webhook, email
+Phase BE-2: Subscription      ✅  Midtrans, checkout, webhook, email
 Phase BE-3: Guest + Security  ✅  Guest codes, anomaly scoring, OTP verification
 Phase BE-4: Admin Dashboard   ✅  Tabler + HTMX, 7 pages, management UI
 Phase BE-5: Hardening         ⏳  Rate limit prod, audit logs, Docker, monitoring

@@ -36,12 +36,12 @@
 │    └──────────────────┬──────────────────────┘        │
 │                       │                                │
 │              ┌────────▼────────┐                       │
-│              │  Supabase PG    │                       │
-│              │  (via pgx pool) │                       │
-│              │  port 6543      │                       │
+│              │  PostgreSQL     │                       │
+│              │  (lokal, pgx)   │                       │
+│              │  port 5432      │                       │
 │              └─────────────────┘                       │
 │                                                        │
-│  External:  Xendit (payment)  ·  Resend (email)       │
+│  External:  Midtrans (payment)  ·  DomainNesia SMTP   │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -58,13 +58,13 @@
 | Migration | **golang-migrate** | 4.x | Reversible migrations, CLI + library |
 | Auth JWT | **golang-jwt** | v5 | Standard JWT implementation |
 | Password | **bcrypt** | stdlib | Industry standard password hashing |
-| Email | **Resend** | Go SDK | Modern transactional email |
-| Payment | **Xendit** | REST API | Indonesian payment gateway |
+| Email | **DomainNesia SMTP** | mx2.mailspace.id | Production SMTP (port 465/SSL) |
+| Payment | **Midtrans** | Snap API | Indonesian payment gateway |
 | Admin UI | **Tabler CSS** | 1.0.0-beta20 | Dark theme, component-rich, Bootstrap-based |
 | Admin HTMX | **HTMX** | 1.9.12 | Server-driven interactivity, no JS framework |
 | Admin Icons | **Tabler Icons** | 3.3.0 | 5,000+ SVG icons |
-| Hosting BE | **Railway** | — | Single binary deploy |
-| Hosting DB | **Supabase** | — | Managed Postgres, free tier |
+| Hosting | **IDCloudHost VPS** | Ubuntu 24.04 | Single binary deploy, nginx reverse proxy |
+| Database | **PostgreSQL** | 15+ | Lokal di VPS, pgx connection pool |
 
 ---
 
@@ -126,7 +126,8 @@ api/
 │       ├── auth_service.go         ← Registration, login, password hashing
 │       ├── token_service.go        ← JWT create/verify/refresh
 │       ├── anomaly_service.go      ← Anomaly scoring logic
-│       └── email_service.go        ← Resend integration (welcome, OTP, reminder)
+│       ├── midtrans_service.go     ← Midtrans Snap API integration
+│       └── email_service.go        ← DomainNesia SMTP (welcome, OTP, reminder)
 │
 ├── db/
 │   ├── migrations/
@@ -186,10 +187,10 @@ CREATE INDEX ON guest_logins (guest_code_id, email);
 ### 4.3 Connection Config
 
 ```
-PostgreSQL: Supabase (ap-northeast-2, Seoul)
-Connection: Transaction pooler (port 6543)
+PostgreSQL: Lokal di IDCloudHost VPS
+Connection: localhost:5432
 Pool: min=2, max=10
-SSL: require
+SSL: disable (lokal)
 ```
 
 ---
@@ -329,20 +330,22 @@ All templates compiled into the Go binary. Zero external file dependencies at ru
 
 ## 8. External Integrations
 
-### 8.1 Xendit (Payment)
+### 8.1 Midtrans (Payment)
 
 ```
 Checkout Flow:
-  1. POST /api/checkout → create Xendit invoice (REST API)
-  2. Redirect user to Xendit payment page
-  3. User pays → Xendit sends webhook → POST /api/xendit/webhook
-  4. Verify HMAC signature → activate subscription
+  1. POST /api/checkout → create Midtrans Snap transaction
+  2. Redirect user to Midtrans payment page (Snap popup)
+  3. User pays → Midtrans sends webhook → POST /api/midtrans/webhook
+  4. Verify HMAC-SHA512 signature → activate subscription
 ```
 
-### 8.2 Resend (Email)
+### 8.2 DomainNesia SMTP (Email)
 
 ```
-Trigger: subscription activated (via Xendit webhook)
+Provider: mx2.mailspace.id (port 465, SSL)
+From: noreply@sains-atomic.web.id
+Trigger: subscription activated (via Midtrans webhook)
   → Send welcome email with subscription details
   → Send renewal reminder 7 days before expiry (future)
 ```
@@ -377,23 +380,25 @@ go run cmd/server/main.go
 make dev
 ```
 
-### 10.2 Production (Planned)
+### 10.2 Production
 
 ```
-Build:   go build -o bin/sains-api cmd/server/main.go
-Deploy:  Railway (single binary, auto-deploy from git)
-DB:      Supabase Postgres (managed, free tier)
-Domain:  api.sains.id (planned)
+Build:   GOOS=linux GOARCH=amd64 go build -o sains-api-linux ./cmd/server/
+Deploy:  SCP to IDCloudHost VPS + systemctl restart sains-api
+DB:      PostgreSQL lokal (localhost:5432)
+Domain:  sains-atomic.web.id (Cloudflare DNS + nginx reverse proxy)
 ```
 
 ### 10.3 Environment Variables
 
 See `api/.env.example` for full list. Critical vars:
-- `DATABASE_URL` — Supabase pooler connection string
+- `DATABASE_URL` — PostgreSQL connection string (localhost:5432)
 - `JWT_SECRET` — HMAC signing key (openssl rand -hex 32)
-- `XENDIT_API_KEY` — Payment gateway key
-- `XENDIT_WEBHOOK_TOKEN` — Webhook HMAC verification
-- `RESEND_API_KEY` — Email service key
+- `MIDTRANS_SERVER_KEY` — Payment gateway server key
+- `MIDTRANS_CLIENT_KEY` — Payment gateway client key
+- `MIDTRANS_BASE_URL` — Sandbox or production base URL
+- `FRONTEND_URL` — Frontend URL for Midtrans redirect
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — Email credentials
 
 ---
 
@@ -414,3 +419,4 @@ See `api/.env.example` for full list. Critical vars:
 |---------|------|---------|
 | 1.0 | 2026-02-22 | Initial TRD — covers Phase BE-1 through BE-4 |
 | 1.1 | 2026-02-24 | Added guest_otps + feedback tables, OTP auth flow, admin Atomic access, feedback handler |
+| 1.2 | 2026-03-05 | Updated all refs: Xendit→Midtrans, Supabase→PostgreSQL lokal, Railway→IDCloudHost VPS, Resend→DomainNesia SMTP. Added midtrans_service.go, FRONTEND_URL, production deploy details. |
