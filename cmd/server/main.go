@@ -155,6 +155,7 @@ func main() {
 			protected.GET("/users/:id", adminDash.UserDetail)
 			protected.POST("/users/:id/lock", adminDash.LockUser)
 			protected.POST("/users/:id/unlock", adminDash.UnlockUser)
+			protected.DELETE("/users/:id", adminDash.DeleteUser)
 			protected.GET("/anomalies", adminDash.Anomalies)
 			protected.GET("/guest-codes", adminDash.GuestCodes)
 			protected.GET("/guest-codes/:id", adminDash.GuestCodeDetail)

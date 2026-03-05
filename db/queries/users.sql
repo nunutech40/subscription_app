@@ -61,3 +61,6 @@ FROM users
 WHERE role = 'subscriber'
 GROUP BY utm_source
 ORDER BY total_registrations DESC;
+
+-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1;

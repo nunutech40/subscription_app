@@ -59,6 +59,13 @@
                                 <i class="ti ti-lock-open"></i>
                             </button>
                             {{end}}
+                            {{if ne .Role "admin"}}
+                            <button class="btn btn-sm btn-outline-danger ms-1" hx-delete="/admin/users/{{.ID}}"
+                                hx-target="#user-row-{{.ID}}" hx-swap="outerHTML swap:0.3s"
+                                hx-confirm="HAPUS user {{.Email}}? Semua data (subscription, session, dll) ikut terhapus!">
+                                <i class="ti ti-trash"></i>
+                            </button>
+                            {{end}}
                         </td>
                     </tr>
                     {{else}}
