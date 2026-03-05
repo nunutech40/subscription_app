@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nununugraha/sains-api/internal/repository"
@@ -12,6 +14,7 @@ import (
 // Depends on: formatIDR, uuidStr (helpers.go)
 
 type subRow struct {
+	ID        string
 	Email     string
 	ProductID string
 	Segment   string
@@ -36,6 +39,7 @@ func (h *AdminHandler) Subscriptions(c *gin.Context) {
 		})
 		for _, s := range filtered {
 			rows = append(rows, subRow{
+				ID:        uuidStr(s.ID),
 				UserID:    uuidStr(s.UserID),
 				Email:     s.Email,
 				ProductID: s.ProductID.String,
@@ -52,6 +56,7 @@ func (h *AdminHandler) Subscriptions(c *gin.Context) {
 		})
 		for _, s := range subs {
 			rows = append(rows, subRow{
+				ID:        uuidStr(s.ID),
 				UserID:    uuidStr(s.UserID),
 				Email:     s.Email,
 				ProductID: s.ProductID.String,
@@ -70,4 +75,12 @@ func (h *AdminHandler) Subscriptions(c *gin.Context) {
 		"Subscriptions": rows,
 		"StatusFilter":  statusFilter,
 	})
+}
+
+// DeleteSubscription handles DELETE /admin/subscriptions/:id
+func (h *AdminHandler) DeleteSubscription(c *gin.Context) {
+	subID := parseUUID(c.Param("id"))
+	_ = h.queries.DeleteSubscription(c.Request.Context(), subID)
+	h.audit.Log(c, "delete_subscription", "subscription", c.Param("id"), "Subscription deleted")
+	c.Status(http.StatusOK)
 }

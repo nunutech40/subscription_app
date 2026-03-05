@@ -106,3 +106,6 @@ SELECT
 FROM subscriptions
 GROUP BY utm_source
 ORDER BY revenue DESC;
+
+-- name: DeleteSubscription :exec
+DELETE FROM subscriptions WHERE id = $1;

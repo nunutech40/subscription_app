@@ -121,6 +121,15 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 	return i, err
 }
 
+const deleteSubscription = `-- name: DeleteSubscription :exec
+DELETE FROM subscriptions WHERE id = $1
+`
+
+func (q *Queries) DeleteSubscription(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSubscription, id)
+	return err
+}
+
 const getActiveSubscription = `-- name: GetActiveSubscription :one
 SELECT id, user_id, product_id, plan_id, segment, xendit_invoice_id, xendit_payment_id, amount_paid_idr, status, paid_at, starts_at, expires_at, created_at, utm_source FROM subscriptions
 WHERE user_id = $1 AND product_id = $2 AND status = 'active' AND expires_at > now()

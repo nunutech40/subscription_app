@@ -24,11 +24,12 @@
                         <th>Status</th>
                         <th>Starts</th>
                         <th>Expires</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {{range .Subscriptions}}
-                    <tr>
+                    <tr id="sub-row-{{.ID}}">
                         <td><a href="/admin/users/{{.UserID}}">{{.Email}}</a></td>
                         <td>{{.ProductID}}</td>
                         <td><span class="badge bg-blue-lt">{{.Segment}}</span></td>
@@ -40,10 +41,17 @@
                         </td>
                         <td>{{.StartsAt}}</td>
                         <td>{{.ExpiresAt}}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" hx-delete="/admin/subscriptions/{{.ID}}"
+                                hx-target="#sub-row-{{.ID}}" hx-swap="outerHTML"
+                                hx-confirm="Hapus subscription {{.Email}}?">
+                                <i class="ti ti-trash"></i>
+                            </button>
+                        </td>
                     </tr>
                     {{else}}
                     <tr>
-                        <td colspan="7" class="text-muted text-center">No subscriptions</td>
+                        <td colspan="8" class="text-muted text-center">No subscriptions</td>
                     </tr>
                     {{end}}
                 </tbody>

@@ -38,6 +38,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeactivateGuestCode(ctx context.Context, id pgtype.UUID) error
 	DeleteGuestCode(ctx context.Context, id pgtype.UUID) error
+	DeleteSubscription(ctx context.Context, id pgtype.UUID) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	GetActiveSessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error)
 	GetActiveSubscription(ctx context.Context, arg GetActiveSubscriptionParams) (Subscription, error)
