@@ -226,5 +226,6 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 	_ = h.queries.DeleteUser(c.Request.Context(), uid)
 	h.audit.Log(c, "delete_user", "user", c.Param("id"),
 		fmt.Sprintf("User deleted: %s (%s)", user.Email, user.Name.String))
-	c.Redirect(http.StatusSeeOther, "/admin/users")
+	// Return empty 200 so HTMX removes the row (outerHTML swap with empty content)
+	c.Status(http.StatusOK)
 }
