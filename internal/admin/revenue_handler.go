@@ -132,12 +132,18 @@ func (h *AdminHandler) Revenue(c *gin.Context) {
 		})
 	}
 
+	// Visitor Analytics
+	totalVisitors, _ := h.queries.GetTotalVisitors(ctx)
+	totalPageViews, _ := h.queries.GetTotalPageViews(ctx)
+
 	h.render(c, "revenue", gin.H{
 		"Title":            "Revenue Analytics",
 		"active":           "revenue",
 		"TotalRevenue":     formatIDR(totalRevenue),
 		"ActiveSubs":       activeSubs,
 		"TotalSubs":        totalSubs,
+		"TotalVisitors":    totalVisitors,
+		"TotalPageViews":   totalPageViews,
 		"RevenueChartJSON": string(revChartJSON),
 		"SegmentChartJSON": string(segChartJSON),
 		"SubChartJSON":     string(subChartJSON),

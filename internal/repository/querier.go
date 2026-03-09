@@ -43,22 +43,27 @@ type Querier interface {
 	GetActiveSessionByUserID(ctx context.Context, userID pgtype.UUID) (Session, error)
 	GetActiveSubscription(ctx context.Context, arg GetActiveSubscriptionParams) (Subscription, error)
 	GetConfig(ctx context.Context, key string) (SystemConfig, error)
+	GetDailyVisitors(ctx context.Context) ([]GetDailyVisitorsRow, error)
 	GetFeedbackStats(ctx context.Context) (GetFeedbackStatsRow, error)
 	GetGuestCodeByCode(ctx context.Context, upper interface{}) (GuestCode, error)
 	GetGuestCodeByID(ctx context.Context, id pgtype.UUID) (GuestCode, error)
 	GetGuestLogin(ctx context.Context, arg GetGuestLoginParams) (GuestLogin, error)
 	GetMonthlyRevenue(ctx context.Context) ([]GetMonthlyRevenueRow, error)
 	GetMonthlySubscriptionCount(ctx context.Context) ([]GetMonthlySubscriptionCountRow, error)
+	GetPageViewsByUrl(ctx context.Context) ([]GetPageViewsByUrlRow, error)
 	GetPendingOTP(ctx context.Context, arg GetPendingOTPParams) (GuestOtp, error)
 	GetPricingPlan(ctx context.Context, id pgtype.UUID) (PricingPlan, error)
 	GetProduct(ctx context.Context, id string) (Product, error)
+	GetRecentPageViews(ctx context.Context, arg GetRecentPageViewsParams) ([]AnalyticsPageview, error)
 	GetRegistrationsByUTMSource(ctx context.Context) ([]GetRegistrationsByUTMSourceRow, error)
 	GetRevenueBySegment(ctx context.Context) ([]GetRevenueBySegmentRow, error)
 	GetRevenueByUTMSource(ctx context.Context) ([]GetRevenueByUTMSourceRow, error)
 	GetSessionByID(ctx context.Context, id pgtype.UUID) (Session, error)
 	GetSessionByRefreshToken(ctx context.Context, refreshTokenHash string) (Session, error)
 	GetSubscriptionByID(ctx context.Context, id pgtype.UUID) (Subscription, error)
+	GetTotalPageViews(ctx context.Context) (int64, error)
 	GetTotalRevenue(ctx context.Context) (int64, error)
+	GetTotalVisitors(ctx context.Context) (int64, error)
 	GetUserAnomalyScore(ctx context.Context, userID pgtype.UUID) (int64, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
@@ -88,6 +93,7 @@ type Querier interface {
 	MarkAllFeedbackRead(ctx context.Context) error
 	MarkFeedbackRead(ctx context.Context, id int64) error
 	MarkOTPVerified(ctx context.Context, id pgtype.UUID) error
+	RecordPageView(ctx context.Context, arg RecordPageViewParams) error
 	RevokeAllUserSessions(ctx context.Context, userID pgtype.UUID) error
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) error
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error)

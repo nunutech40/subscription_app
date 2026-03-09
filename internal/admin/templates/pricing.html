@@ -35,14 +35,14 @@
                     <td>
                         <div id="price-display-{{.ID}}" class="d-flex align-items-center gap-2">
                             <span class="price-text" id="price-text-{{.ID}}">Rp {{.PriceIDR}}</span>
-                            <button class="btn btn-ghost-primary btn-sm btn-icon"
+                            <button class="btn btn-ghost-primary btn-sm btn-icon border-0"
                                 onclick="startEdit('{{.ID}}', {{.PriceRaw}})" title="Edit price">
                                 <i class="ti ti-pencil"></i>
                             </button>
                         </div>
                         <div id="price-edit-{{.ID}}" class="d-none">
                             <form class="d-flex align-items-center gap-2" onsubmit="submitPrice(event, '{{.ID}}')">
-                                <div class="input-group input-group-sm" style="max-width: 180px;">
+                                <div class="input-group input-group-sm" style="max-width: 160px;">
                                     <span class="input-group-text">Rp</span>
                                     <input type="number" class="form-control" id="price-input-{{.ID}}" min="0"
                                         step="1000" required>
@@ -55,7 +55,7 @@
                                     <i class="ti ti-x"></i>
                                 </button>
                             </form>
-                            <div id="price-status-{{.ID}}" class="mt-1"></div>
+                            <div id="price-status-{{.ID}}" class="mt-1 small"></div>
                         </div>
                     </td>
                     <td>{{.Label}}</td>
@@ -91,18 +91,28 @@
 <div class="row row-cards mt-3">
     {{range .Segments}}
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">{{.Name}}</h3>
-                <span class="badge bg-blue-lt">{{.Count}} plans</span>
+        <div class="card card-stacked">
+            <div class="card-header {{if eq .Name " global"}}bg-blue-lt{{else if eq .Name "student"
+                }}bg-green-lt{{else}}bg-orange-lt{{end}}">
+                <h3 class="card-title text-white fw-bold">{{.Name}}</h3>
+                <span class="badge bg-white text-dark">{{.Count}} plans</span>
             </div>
             <div class="list-group list-group-flush">
                 {{range .Plans}}
                 <div class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>{{.Duration}}</span>
                     <div>
-                        <strong>Rp {{.PriceIDR}}</strong>
-                        {{if not .IsActive}}<span class="badge bg-red-lt ms-1">Inactive</span>{{end}}
+                        <span class="badge bg-secondary-lt me-2" style="font-size: 0.65rem;">{{.ProductID}}</span>
+                        <strong class="text-white">{{.Duration}}</strong>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div id="price-display-card-{{.ID}}" class="d-flex align-items-center gap-1">
+                            <strong class="text-azure price-text" id="price-text-card-{{.ID}}">Rp {{.PriceIDR}}</strong>
+                            <button class="btn btn-ghost-primary btn-sm btn-icon border-0 p-0"
+                                onclick="startEdit('{{.ID}}', {{.PriceRaw}})" title="Edit price">
+                                <i class="ti ti-pencil opacity-75"></i>
+                            </button>
+                        </div>
+                        {{if not .IsActive}}<span class="badge bg-red-lt ms-2">Inactive</span>{{end}}
                     </div>
                 </div>
                 {{end}}
@@ -114,18 +124,37 @@
 
 <script>
     function startEdit(id, currentPrice) {
-        document.getElementById('price-display-' + id).classList.add('d-none');
-        document.getElementById('price-edit-' + id).classList.remove('d-none');
+        // Find if we are in table or card and toggle both to be safe
+        var tableDisplay = document.getElementById('price-display-' + id);
+        var tableEdit = document.getElementById('price-edit-' + id);
+
+        if (tableDisplay) tableDisplay.classList.add('d-none');
+        if (tableEdit) tableEdit.classList.remove('d-none');
+
+        // Also toggle card if it exists (visually)
+        var cardDisplay = document.getElementById('price-display-card-' + id);
+        if (cardDisplay) cardDisplay.classList.add('opacity-25'); // dim the card price while editing in table
+
         var input = document.getElementById('price-input-' + id);
-        input.value = currentPrice;
-        input.focus();
-        input.select();
+        if (input) {
+            input.value = currentPrice;
+            input.focus();
+            input.select();
+        }
     }
 
     function cancelEdit(id) {
-        document.getElementById('price-display-' + id).classList.remove('d-none');
-        document.getElementById('price-edit-' + id).classList.add('d-none');
-        document.getElementById('price-status-' + id).innerHTML = '';
+        var tableDisplay = document.getElementById('price-display-' + id);
+        var tableEdit = document.getElementById('price-edit-' + id);
+
+        if (tableDisplay) tableDisplay.classList.remove('d-none');
+        if (tableEdit) tableEdit.classList.add('d-none');
+
+        var cardDisplay = document.getElementById('price-display-card-' + id);
+        if (cardDisplay) cardDisplay.classList.remove('opacity-25');
+
+        var statusEl = document.getElementById('price-status-' + id);
+        if (statusEl) statusEl.innerHTML = '';
     }
 
     function submitPrice(event, id) {
@@ -136,11 +165,11 @@
         var statusEl = document.getElementById('price-status-' + id);
 
         if (isNaN(price) || price < 0) {
-            statusEl.innerHTML = '<span class="text-danger"><i class="ti ti-alert-circle me-1"></i>Invalid price</span>';
+            statusEl.innerHTML = '<span class="text-danger small"><i class="ti ti-alert-circle me-1"></i>Invalid price</span>';
             return;
         }
 
-        statusEl.innerHTML = '<span class="text-muted"><i class="ti ti-loader ti-spin me-1"></i>Saving...</span>';
+        statusEl.innerHTML = '<span class="text-muted small"><i class="ti ti-loader ti-spin me-1"></i>Saving...</span>';
 
         var formData = new FormData();
         formData.append('price', price.toString());
@@ -154,19 +183,35 @@
                 return response.text();
             })
             .then(function (html) {
-                var priceText = document.getElementById('price-text-' + id);
-                priceText.innerHTML = html;
+                // Update BOTH table and card
+                var priceTextTable = document.getElementById('price-text-' + id);
+                var priceTextCard = document.getElementById('price-text-card-' + id);
+
+                if (priceTextTable) {
+                    priceTextTable.innerHTML = html;
+                    flash(priceTextTable);
+                }
+
+                if (priceTextCard) {
+                    // Strip HTML from response for card strong tag if needed, 
+                    // but the response is a span which is fine inside strong or we can just replace the parent's content
+                    priceTextCard.innerHTML = html;
+                    flash(priceTextCard);
+                }
+
                 cancelEdit(id);
-                // Flash success
-                priceText.style.transition = 'color 0.3s';
-                priceText.style.color = '#2fb344';
-                setTimeout(function () {
-                    priceText.style.color = '';
-                }, 2000);
             })
             .catch(function (err) {
-                statusEl.innerHTML = '<span class="text-danger"><i class="ti ti-alert-circle me-1"></i>Failed to save</span>';
+                statusEl.innerHTML = '<span class="text-danger small"><i class="ti ti-alert-circle me-1"></i>Failed to save</span>';
             });
+    }
+
+    function flash(el) {
+        el.style.transition = 'color 0.3s';
+        el.style.color = '#2fb344'; // greenish
+        setTimeout(function () {
+            el.style.color = '';
+        }, 2000);
     }
 </script>
 {{end}}

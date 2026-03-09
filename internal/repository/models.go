@@ -32,6 +32,18 @@ type AdminAuditLog struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type AnalyticsPageview struct {
+	ID          pgtype.UUID        `json:"id"`
+	PageUrl     string             `json:"page_url"`
+	Referrer    pgtype.Text        `json:"referrer"`
+	IpHash      string             `json:"ip_hash"`
+	UserAgent   pgtype.Text        `json:"user_agent"`
+	UtmSource   pgtype.Text        `json:"utm_source"`
+	UtmMedium   pgtype.Text        `json:"utm_medium"`
+	UtmCampaign pgtype.Text        `json:"utm_campaign"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type AnomalyLog struct {
 	ID         pgtype.UUID        `json:"id"`
 	UserID     pgtype.UUID        `json:"user_id"`

@@ -60,6 +60,7 @@ func main() {
 	guestHandler := handler.NewGuestHandler(queries)
 	subHandler := handler.NewSubscriptionHandler(queries, midtransService, emailService, cfg.FrontendURL)
 	feedbackHandler := handler.NewFeedbackHandler(queries)
+	analyticsHandler := handler.NewAnalyticsHandler(queries)
 
 	// ── Router ────────────────────────────────────────────────────────
 	gin.SetMode(cfg.GinMode)
@@ -81,6 +82,9 @@ func main() {
 		api.GET("/ping", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"message": "pong"})
 		})
+
+		// Analytics (public)
+		api.POST("/analytics/collect", analyticsHandler.Collect)
 
 		// Auth (public — stricter rate limit)
 		auth := api.Group("/auth")

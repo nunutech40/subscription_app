@@ -1,36 +1,39 @@
 {{define "content"}}
 <!-- Summary Cards -->
 <div class="row row-cards mb-3">
-    <div class="col-sm-4">
-        <div class="card stat-card">
+    <div class="col-sm-3">
+        <div class="card bg-primary-lt">
             <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="subheader text-muted">TOTAL REVENUE</div>
-                </div>
+                <div class="subheader text-primary">TOTAL VISITORS</div>
+                <div class="h1 mb-0 mt-2 text-primary">{{.TotalVisitors}}</div>
+                <div class="text-muted mt-1 small">pengunjung unik</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-3">
+        <div class="card bg-azure-lt">
+            <div class="card-body">
+                <div class="subheader text-azure">TOTAL PAGE VIEWS</div>
+                <div class="h1 mb-0 mt-2 text-azure">{{.TotalPageViews}}</div>
+                <div class="text-muted mt-1 small">total klik/halaman</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="subheader text-muted">TOTAL REVENUE</div>
                 <div class="h1 mb-0 mt-2">Rp {{.TotalRevenue}}</div>
-                <div class="text-muted mt-1">dari semua transaksi aktif</div>
+                <div class="text-muted mt-1 small">dari transaksi aktif</div>
             </div>
         </div>
     </div>
-    <div class="col-sm-4">
-        <div class="card stat-card">
+    <div class="col-sm-3">
+        <div class="card">
             <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="subheader text-muted">ACTIVE SUBSCRIBERS</div>
-                </div>
+                <div class="subheader text-muted">ACTIVE SUBS</div>
                 <div class="h1 mb-0 mt-2">{{.ActiveSubs}}</div>
-                <div class="text-muted mt-1">subscriber aktif saat ini</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-sm-4">
-        <div class="card stat-card">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="subheader text-muted">TOTAL SUBSCRIPTIONS</div>
-                </div>
-                <div class="h1 mb-0 mt-2">{{.TotalSubs}}</div>
-                <div class="text-muted mt-1">semua subscription (all status)</div>
+                <div class="text-muted mt-1 small">subscriber aktif</div>
             </div>
         </div>
     </div>
@@ -208,7 +211,7 @@
         var revContainer = document.getElementById('revenue-chart-container');
         var revData = JSON.parse(revContainer.getAttribute('data-chart'));
 
-        if (revData.labels && revData.labels.length > 0) {
+        if (revData && revData.labels && revData.labels.length > 0) {
             new Chart(document.getElementById('revenueChart'), {
                 type: 'line',
                 data: {
@@ -259,7 +262,7 @@
                     }
                 }
             });
-        } else {
+        } else if (revContainer) {
             revContainer.innerHTML = '<div class="text-muted text-center py-5"><i class="ti ti-chart-line-off" style="font-size:2rem"></i><br>Belum ada data revenue</div>';
         }
 
@@ -267,7 +270,7 @@
         var segContainer = document.getElementById('segment-chart-container');
         var segData = JSON.parse(segContainer.getAttribute('data-chart'));
 
-        if (segData.labels && segData.labels.length > 0) {
+        if (segData && segData.labels && segData.labels.length > 0) {
             var segColors = [];
             segData.labels.forEach(function (label) {
                 if (label === 'global') segColors.push('#4299e1');
@@ -307,7 +310,7 @@
                     cutout: '60%'
                 }
             });
-        } else {
+        } else if (segContainer) {
             segContainer.innerHTML = '<div class="text-muted text-center py-5"><i class="ti ti-chart-pie-off" style="font-size:2rem"></i><br>Belum ada data segment</div>';
         }
 
@@ -315,7 +318,7 @@
         var subContainer = document.getElementById('sub-chart-container');
         var subData = JSON.parse(subContainer.getAttribute('data-chart'));
 
-        if (subData.months && subData.months.length > 0) {
+        if (subData && subData.months && subData.months.length > 0) {
             new Chart(document.getElementById('subChart'), {
                 type: 'bar',
                 data: {
@@ -371,7 +374,7 @@
                     }
                 }
             });
-        } else {
+        } else if (subContainer) {
             subContainer.innerHTML = '<div class="text-muted text-center py-5"><i class="ti ti-chart-bar-off" style="font-size:2rem"></i><br>Belum ada data subscription trend</div>';
         }
     });
