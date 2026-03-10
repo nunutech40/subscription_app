@@ -1,4 +1,88 @@
 {{define "content"}}
+
+{{if .Flash}}
+<div class="alert {{if eq .Flash " success"}}alert-success{{else}}alert-danger{{end}} alert-dismissible fade show mb-3"
+    role="alert">
+    {{if eq .Flash "success"}}
+    <i class="ti ti-circle-check me-2"></i>Plan berhasil ditambahkan!
+    {{else if eq .Flash "error_missing_fields"}}
+    <i class="ti ti-alert-circle me-2"></i>Semua field wajib diisi.
+    {{else if eq .Flash "error_invalid_days"}}
+    <i class="ti ti-alert-circle me-2"></i>Duration days harus lebih dari 0.
+    {{else if eq .Flash "error_invalid_price"}}
+    <i class="ti ti-alert-circle me-2"></i>Harga tidak valid.
+    {{else}}
+    <i class="ti ti-alert-circle me-2"></i>Gagal membuat plan. Coba lagi.
+    {{end}}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{{end}}
+
+<!-- Add New Plan Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="ti ti-plus me-2"></i>Tambah Plan Baru</h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="/admin/pricing">
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label required">Product</label>
+                    <select name="product_id" class="form-select" required>
+                        <option value="">-- Pilih Product --</option>
+                        {{range .Products}}
+                        <option value="{{.ID}}">{{.ID}} — {{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label required">Segment</label>
+                    <select name="segment" class="form-select" required>
+                        <option value="">-- Pilih --</option>
+                        <option value="global">global</option>
+                        <option value="student">student</option>
+                        <option value="parent">parent</option>
+                        <option value="teacher">teacher</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label required">Duration</label>
+                    <select name="duration" class="form-select" id="durationSelect" required
+                        onchange="setDays(this.value)">
+                        <option value="">-- Pilih --</option>
+                        <option value="monthly">monthly</option>
+                        <option value="3month">3month</option>
+                        <option value="6month">6month</option>
+                        <option value="yearly">yearly</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label required">Days</label>
+                    <input type="number" name="duration_days" id="durationDays" class="form-control" min="1" required
+                        placeholder="30">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label required">Harga (IDR)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">Rp</span>
+                        <input type="number" name="price_idr" class="form-control" min="0" step="1000" required
+                            placeholder="99000">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Label (opsional)</label>
+                    <input type="text" name="label" class="form-control" placeholder="Bulanan — Hemat 10%">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="ti ti-plus me-1"></i>Buat
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header">
         <h3 class="card-title"><i class="ti ti-currency-dollar me-2"></i>Pricing Plans</h3>
@@ -6,6 +90,7 @@
             <span class="text-muted me-2"><i class="ti ti-info-circle me-1"></i>Click on price to edit inline</span>
         </div>
     </div>
+
     <div class="table-responsive">
         <table class="table table-vcenter card-table">
             <thead>
@@ -212,6 +297,13 @@
         setTimeout(function () {
             el.style.color = '';
         }, 2000);
+    }
+
+    // Auto-fill duration days when duration is selected
+    function setDays(duration) {
+        var map = { monthly: 30, '3month': 90, '6month': 180, yearly: 365 };
+        var input = document.getElementById('durationDays');
+        if (input && map[duration]) input.value = map[duration];
     }
 </script>
 {{end}}

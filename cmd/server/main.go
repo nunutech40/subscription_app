@@ -169,8 +169,10 @@ func main() {
 			protected.GET("/subscriptions", adminDash.Subscriptions)
 			protected.DELETE("/subscriptions/:id", adminDash.DeleteSubscription)
 			protected.GET("/pricing", adminDash.Pricing)
+			protected.POST("/pricing", adminDash.CreatePlan)
 			protected.PUT("/pricing/:id", adminDash.UpdatePriceInline)
 			protected.POST("/pricing/:id/toggle", adminDash.TogglePlanActive)
+
 			protected.GET("/revenue", adminDash.Revenue)
 			protected.GET("/settings", adminDash.Settings)
 			protected.PUT("/settings/:key", adminDash.UpdateConfig)

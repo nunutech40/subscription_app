@@ -18,7 +18,8 @@ WHERE id = $1;
 
 -- name: ListAllPricingPlans :many
 SELECT * FROM pricing_plans
-ORDER BY segment, price_idr ASC;
+ORDER BY COALESCE(product_id, '') ASC, segment ASC, duration_days ASC;
+
 
 -- name: UpdatePricingPlanPrice :exec
 UPDATE pricing_plans

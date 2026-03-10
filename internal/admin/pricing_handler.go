@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/nununugraha/sains-api/internal/repository"
 )
 
@@ -67,12 +68,76 @@ func (h *AdminHandler) Pricing(c *gin.Context) {
 		})
 	}
 
+	// Fetch products for the "Add Plan" form dropdown
+	products, _ := h.queries.ListAllProducts(ctx)
+	type productOption struct {
+		ID   string
+		Name string
+	}
+	var productOptions []productOption
+	for _, p := range products {
+		productOptions = append(productOptions, productOption{ID: p.ID, Name: p.Name})
+	}
+
+	// Flash message from redirect
+	flash := c.Query("flash")
+
 	h.render(c, "pricing", gin.H{
 		"Title":    "Pricing Plans",
 		"active":   "pricing",
 		"Plans":    planRows,
 		"Segments": segments,
+		"Products": productOptions,
+		"Flash":    flash,
 	})
+}
+
+// CreatePlan handles POST /admin/pricing — tambah plan baru
+func (h *AdminHandler) CreatePlan(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	productID := c.PostForm("product_id")
+	segment := c.PostForm("segment")
+	duration := c.PostForm("duration")
+	durationDaysStr := c.PostForm("duration_days")
+	priceStr := c.PostForm("price_idr")
+	label := c.PostForm("label")
+
+	if productID == "" || segment == "" || duration == "" || durationDaysStr == "" || priceStr == "" {
+		c.Redirect(http.StatusSeeOther, "/admin/pricing?flash=error_missing_fields")
+		return
+	}
+
+	durationDays, err := strconv.Atoi(durationDaysStr)
+	if err != nil || durationDays <= 0 {
+		c.Redirect(http.StatusSeeOther, "/admin/pricing?flash=error_invalid_days")
+		return
+	}
+
+	price, err := strconv.Atoi(priceStr)
+	if err != nil || price < 0 {
+		c.Redirect(http.StatusSeeOther, "/admin/pricing?flash=error_invalid_price")
+		return
+	}
+
+	_, err = h.queries.CreatePricingPlan(ctx, repository.CreatePricingPlanParams{
+		ProductID:    pgtype.Text{String: productID, Valid: true},
+		Segment:      segment,
+		Duration:     duration,
+		DurationDays: int32(durationDays),
+		PriceIdr:     int32(price),
+		Label:        pgtype.Text{String: label, Valid: label != ""},
+		IsActive:     pgtype.Bool{Bool: true, Valid: true},
+	})
+	if err != nil {
+		log.Printf("create plan error: %v", err)
+		c.Redirect(http.StatusSeeOther, "/admin/pricing?flash=error_create_failed")
+		return
+	}
+
+	h.audit.Log(c, "create_plan", "pricing_plan", productID,
+		fmt.Sprintf("Plan created: %s/%s/%s @ Rp %s", productID, segment, duration, formatIDR(int64(price))))
+	c.Redirect(http.StatusSeeOther, "/admin/pricing?flash=success")
 }
 
 // UpdatePriceInline handles PUT /admin/pricing/:id — inline HTMX price edit
