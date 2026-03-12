@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"net/http"
 	"strconv"
 	"time"
@@ -75,7 +76,8 @@ func toSubscriptionDTO(s repository.Subscription) subscriptionDTO {
 func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 	var req struct {
 		PlanID    string `json:"plan_id" binding:"required"`
-		UtmSource string `json:"utm_source"` // optional: landing page identifier
+		UtmSource string `json:"utm_source"`  // optional: landing page identifier
+		ReturnURL string `json:"return_url"` // optional: redirect after payment
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		RespondBadRequest(c, "plan_id wajib diisi")
@@ -140,7 +142,7 @@ func (h *SubscriptionHandler) Checkout(c *gin.Context) {
 		PayerEmail:  email.(string),
 		PayerName:   payerName,
 		Description: fmt.Sprintf("Subscription %s — %s (%s)", plan.ProductID.String, plan.Label.String, plan.Segment),
-		FinishURL:   h.frontendURL + "/#/payment/success?sub=" + subID,
+		FinishURL:   resolveFinishURL(req.ReturnURL, h.frontendURL) + "/#/payment/success?sub=" + subID,
 	})
 	if err != nil {
 		log.Printf("midtrans create transaction error: %v", err)
@@ -340,4 +342,24 @@ func (h *SubscriptionHandler) QuotaStatus(c *gin.Context) {
 			"max":     maxGuests,
 		},
 	})
+}
+
+// resolveFinishURL returns the provided returnURL if it matches an allowed domain,
+// otherwise falls back to the default frontendURL. This prevents open redirect attacks
+// while allowing multi-product checkout to redirect to the correct app.
+func resolveFinishURL(returnURL, fallback string) string {
+	if returnURL == "" {
+		return fallback
+	}
+	allowed := []string{
+		"sains-atomic.web.id",
+		"invoiceklinik.web.id",
+		"localhost",
+	}
+	for _, domain := range allowed {
+		if strings.Contains(returnURL, domain) {
+			return strings.TrimRight(returnURL, "/")
+		}
+	}
+	return fallback
 }
