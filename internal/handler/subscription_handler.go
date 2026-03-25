@@ -355,6 +355,7 @@ func resolveFinishURL(returnURL, fallback string) string {
 		"sains-atomic.web.id",
 		"invoiceklinik.web.id",
 		"dokumensurat.web.id",
+		"kontrakpro.web.id",
 		"localhost",
 	}
 	for _, domain := range allowed {
